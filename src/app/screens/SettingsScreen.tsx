@@ -425,19 +425,9 @@ export const SettingsScreen: React.FC = () => {
             {isEditingSubjects ? (
               // EDIT MODE
               <>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  fullWidth
-                  onClick={handleAddSubject}
-                >
-                  <Plus className="w-4 h-4 inline mr-1" />
-                  Add Subject
-                </Button>
-
                 {editingSubjects.length === 0 ? (
                   <p className="text-sm text-text-muted text-center py-4">
-                    No subjects yet. Add your first subject above.
+                    No subjects yet. Add your first subject below.
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -487,6 +477,16 @@ export const SettingsScreen: React.FC = () => {
                     ))}
                   </div>
                 )}
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  fullWidth
+                  onClick={handleAddSubject}
+                >
+                  <Plus className="w-4 h-4 inline mr-1" />
+                  Add Subject
+                </Button>
 
                 <div className="flex gap-3">
                   {savedSubjects.length > 0 && (
