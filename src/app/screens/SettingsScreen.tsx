@@ -5,146 +5,78 @@ import { Input } from '@/app/components/Input';
 import { Button } from '@/app/components/Button';
 import { storage } from '@/utils/storage';
 import { AppSettingsV2, SubjectV2, DayId, SubjectType, DayConfig } from '@/types';
-import { Plus, Trash2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Minus, X, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 type SettingsTab = 'periods' | 'subjects';
 
-const DAY_LABELS: Array<{ id: DayId; label: string }> = [
-  { id: 'Mon', label: 'Monday' },
-  { id: 'Tue', label: 'Tuesday' },
-  { id: 'Wed', label: 'Wednesday' },
-  { id: 'Thu', label: 'Thursday' },
-  { id: 'Fri', label: 'Friday' },
-  { id: 'Sat', label: 'Saturday' },
-  { id: 'Sun', label: 'Sunday' },
+const DAY_LABELS: Array<{ id: DayId; label: string; short: string }> = [
+  { id: 'Mon', label: 'Monday', short: 'Mon' },
+  { id: 'Tue', label: 'Tuesday', short: 'Tue' },
+  { id: 'Wed', label: 'Wednesday', short: 'Wed' },
+  { id: 'Thu', label: 'Thursday', short: 'Thu' },
+  { id: 'Fri', label: 'Friday', short: 'Fri' },
+  { id: 'Sat', label: 'Saturday', short: 'Sat' },
+  { id: 'Sun', label: 'Sunday', short: 'Sun' },
 ];
 
 export const SettingsScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('periods');
 
-  // Edit mode states
-  const [isEditingPeriods, setIsEditingPeriods] = useState(false);
-  const [isEditingSubjects, setIsEditingSubjects] = useState(false);
-
   // Saved data (source of truth)
   const [savedSettings, setSavedSettings] = useState<AppSettingsV2 | null>(null);
   const [savedSubjects, setSavedSubjects] = useState<SubjectV2[]>([]);
 
-  // Editing form data
-  const [periodDurationStr, setPeriodDurationStr] = useState('');
-  const [dayTotalsStr, setDayTotalsStr] = useState<Record<DayId, string>>({} as Record<DayId, string>);
-  const [settingsError, setSettingsError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Period editing
+  const [periodDuration, setPeriodDuration] = useState(45);
+  const [dayTotals, setDayTotals] = useState<Record<DayId, number>>({} as Record<DayId, number>);
+  const [hasUnsavedPeriodChanges, setHasUnsavedPeriodChanges] = useState(false);
 
-  const [editingSubjects, setEditingSubjects] = useState<SubjectV2[]>([]);
-  const [subjectErrors, setSubjectErrors] = useState<Record<string, string>>({});
-
-  const initPeriodsForm = (settings: AppSettingsV2) => {
-    setPeriodDurationStr(settings.periodDurationMinutes.toString());
-    const dayTotals: Record<DayId, string> = {} as Record<DayId, string>;
-    DAY_LABELS.forEach(d => {
-      dayTotals[d.id] = (settings.days[d.id]?.totalPeriods ?? 0).toString();
-    });
-    setDayTotalsStr(dayTotals);
-    setFieldErrors({});
-    setSettingsError('');
-  };
+  // Subject editing modal
+  const [editingSubject, setEditingSubject] = useState<SubjectV2 | null>(null);
+  const [isAddingSubject, setIsAddingSubject] = useState(false);
+  const [subjectName, setSubjectName] = useState('');
+  const [subjectType, setSubjectType] = useState<SubjectType>('theory');
 
   // Load initial data
   useEffect(() => {
     const loaded = storage.getSettingsV2();
     setSavedSettings(loaded);
-    initPeriodsForm(loaded);
+    setPeriodDuration(loaded.periodDurationMinutes);
+    
+    const totals: Record<DayId, number> = {} as Record<DayId, number>;
+    DAY_LABELS.forEach(d => {
+      totals[d.id] = loaded.days[d.id]?.totalPeriods ?? 0;
+    });
+    setDayTotals(totals);
 
     const loadedSubjects = storage.getSubjectsV2();
     setSavedSubjects(loadedSubjects);
-    setEditingSubjects(loadedSubjects);
-
-    // Auto-enter edit mode if no data configured
-    const hasPeriodsConfigured = Object.values(loaded.days).some((d: DayConfig) => d.totalPeriods > 0);
-    if (!hasPeriodsConfigured) {
-      setIsEditingPeriods(true);
-    }
-    if (loadedSubjects.length === 0) {
-      setIsEditingSubjects(true);
-    }
   }, []);
 
-  const parsePositiveInt = (str: string, max?: number): { value: number | null; error: string } => {
-    if (!str.trim()) {
-      return { value: null, error: 'This field is required' };
-    }
-    const num = Number(str);
-    if (isNaN(num) || !Number.isInteger(num)) {
-      return { value: null, error: 'Must be a whole number' };
-    }
-    if (num < 0) {
-      return { value: null, error: 'Cannot be negative' };
-    }
-    if (max !== undefined && num > max) {
-      return { value: null, error: `Maximum ${max} allowed` };
-    }
-    return { value: num, error: '' };
-  };
-
-  const handlePeriodDurationChange = (value: string) => {
-    setPeriodDurationStr(value);
-    const parsed = parsePositiveInt(value);
-    if (parsed.error) {
-      setFieldErrors(prev => ({ ...prev, periodDuration: parsed.error }));
-    } else {
-      setFieldErrors(prev => {
-        const next = { ...prev };
-        delete next.periodDuration;
-        return next;
-      });
-    }
-    setSettingsError('');
-  };
-
-  const handleDayTotalChange = (dayId: DayId, value: string) => {
-    setDayTotalsStr(prev => ({ ...prev, [dayId]: value }));
-    const parsed = parsePositiveInt(value);
-    if (parsed.error && parsed.value === null) {
-      setFieldErrors(prev => ({ ...prev, [`day-${dayId}`]: parsed.error }));
-    } else {
-      setFieldErrors(prev => {
-        const next = { ...prev };
-        delete next[`day-${dayId}`];
-        return next;
-      });
-    }
-    setSettingsError('');
-  };
-
-  const handleSaveSettings = () => {
-    const errors: Record<string, string> = {};
+  // Track unsaved period changes
+  useEffect(() => {
+    if (!savedSettings) return;
     
-    const periodDurationParsed = parsePositiveInt(periodDurationStr);
-    if (periodDurationParsed.error || periodDurationParsed.value === null || periodDurationParsed.value <= 0) {
-      errors.periodDuration = periodDurationParsed.error || 'Period duration must be greater than zero.';
-    }
+    const durationChanged = periodDuration !== savedSettings.periodDurationMinutes;
+    const totalsChanged = DAY_LABELS.some(d => 
+      (dayTotals[d.id] ?? 0) !== (savedSettings.days[d.id]?.totalPeriods ?? 0)
+    );
+    
+    setHasUnsavedPeriodChanges(durationChanged || totalsChanged);
+  }, [periodDuration, dayTotals, savedSettings]);
 
-    DAY_LABELS.forEach(d => {
-      const str = dayTotalsStr[d.id] ?? '0';
-      const parsed = parsePositiveInt(str, 14); // Max 14 periods per day
-      if (parsed.error || parsed.value === null || parsed.value < 0) {
-        errors[`day-${d.id}`] = parsed.error || 'Total periods cannot be negative.';
-      }
-    });
+  const handleDayPeriodChange = (dayId: DayId, delta: number) => {
+    setDayTotals(prev => ({
+      ...prev,
+      [dayId]: Math.max(0, Math.min(14, (prev[dayId] ?? 0) + delta)),
+    }));
+  };
 
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      setSettingsError('Please fix all errors before saving.');
-      return;
-    }
-
-    const periodDuration = periodDurationParsed.value!;
+  const handleSavePeriods = () => {
     const days: Record<DayId, DayConfig> = {} as Record<DayId, DayConfig>;
     DAY_LABELS.forEach(d => {
-      const parsed = parsePositiveInt(dayTotalsStr[d.id] ?? '0');
-      days[d.id] = { day: d.id, totalPeriods: parsed.value ?? 0 };
+      days[d.id] = { day: d.id, totalPeriods: dayTotals[d.id] ?? 0 };
     });
 
     const newSettings: AppSettingsV2 = {
@@ -154,105 +86,85 @@ export const SettingsScreen: React.FC = () => {
 
     storage.setSettingsV2(newSettings);
     setSavedSettings(newSettings);
-    setIsEditingPeriods(false);
+    setHasUnsavedPeriodChanges(false);
     toast.success('Period settings saved!');
   };
 
-  const handleCancelPeriods = () => {
-    if (savedSettings) {
-      initPeriodsForm(savedSettings);
+  const handleOpenEditSubject = (subject: SubjectV2) => {
+    setEditingSubject(subject);
+    setSubjectName(subject.name);
+    setSubjectType(subject.type);
+    setIsAddingSubject(false);
+  };
+
+  const handleOpenAddSubject = () => {
+    setEditingSubject(null);
+    setSubjectName('');
+    setSubjectType('theory');
+    setIsAddingSubject(true);
+  };
+
+  const handleCloseSubjectModal = () => {
+    setEditingSubject(null);
+    setIsAddingSubject(false);
+    setSubjectName('');
+    setSubjectType('theory');
+  };
+
+  const handleSaveSubject = () => {
+    if (!subjectName.trim()) {
+      toast.error('Subject name is required');
+      return;
     }
-    setIsEditingPeriods(false);
-  };
 
-  const handleEditPeriods = () => {
-    if (savedSettings) {
-      initPeriodsForm(savedSettings);
+    if (isAddingSubject) {
+      const newSubject: SubjectV2 = {
+        id: `subject-${Date.now()}`,
+        name: subjectName.trim(),
+        type: subjectType,
+      };
+      const updated = [...savedSubjects, newSubject];
+      storage.setSubjectsV2(updated);
+      setSavedSubjects(updated);
+      toast.success('Subject added!');
+    } else if (editingSubject) {
+      const updated = savedSubjects.map(s =>
+        s.id === editingSubject.id
+          ? { ...s, name: subjectName.trim(), type: subjectType }
+          : s
+      );
+      storage.setSubjectsV2(updated);
+      setSavedSubjects(updated);
+      toast.success('Subject updated!');
     }
-    setIsEditingPeriods(true);
+
+    handleCloseSubjectModal();
   };
 
-  const handleAddSubject = () => {
-    const newSubject: SubjectV2 = {
-      id: `subject-${Date.now()}`,
-      name: '',
-      type: 'theory',
-    };
-    setEditingSubjects(prev => [...prev, newSubject]);
-    setSubjectErrors(prev => ({
-      ...prev,
-      [newSubject.id]: 'Subject name is required',
-    }));
-  };
-
-  const handleSubjectChange = (id: string, patch: Partial<SubjectV2>) => {
-    setEditingSubjects(prev => prev.map(s => (s.id === id ? { ...s, ...patch } : s)));
-
-    setSubjectErrors(prev => {
-      const next = { ...prev };
-      const updated = editingSubjects.find(s => s.id === id);
-      const nextName = patch.name ?? updated?.name ?? '';
-      if (!nextName.trim()) {
-        next[id] = 'Subject name is required';
-      } else {
-        delete next[id];
-      }
-      return next;
-    });
-  };
-
-  const handleDeleteSubject = (id: string) => {
-    setEditingSubjects(prev => prev.filter(s => s.id !== id));
-    setSubjectErrors(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  };
-
-  const handleSaveSubjects = () => {
-    const errors: Record<string, string> = {};
-    editingSubjects.forEach(s => {
-      if (!s.name.trim()) errors[s.id] = 'Subject name is required';
-    });
-    setSubjectErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+  const handleDeleteSubject = () => {
+    if (!editingSubject) return;
     
-    storage.setSubjectsV2(editingSubjects);
-    setSavedSubjects(editingSubjects);
-    setIsEditingSubjects(false);
-    toast.success('Subjects saved!');
+    const updated = savedSubjects.filter(s => s.id !== editingSubject.id);
+    storage.setSubjectsV2(updated);
+    setSavedSubjects(updated);
+    toast.success('Subject deleted!');
+    handleCloseSubjectModal();
   };
-
-  const handleCancelSubjects = () => {
-    setEditingSubjects(savedSubjects);
-    setSubjectErrors({});
-    setIsEditingSubjects(false);
-  };
-
-  const handleEditSubjects = () => {
-    setEditingSubjects(savedSubjects);
-    setSubjectErrors({});
-    setIsEditingSubjects(true);
-  };
-
-  // Check if there's data configured
-  const hasPeriodsConfigured = savedSettings && Object.values(savedSettings.days).some((d: DayConfig) => d.totalPeriods > 0);
 
   return (
     <div className="min-h-screen bg-bg-secondary pb-20">
       <AppBar title="Settings" showProfile={false} />
 
-      <div className="max-w-md mx-auto p-4 space-y-6">
+      <div className="max-w-md mx-auto p-4 space-y-4">
         {/* Tabs */}
-        <div className="bg-bg-primary p-2 rounded-[10px] border border-border flex gap-2">
+        <div className="flex gap-1 p-1 bg-bg-muted rounded-lg">
           <button
             type="button"
             onClick={() => setActiveTab('periods')}
-            className={`flex-1 py-2 rounded-[8px] text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'periods'
-                ? 'bg-text-primary text-bg-primary'
-                : 'bg-bg-muted text-text-primary hover:bg-border'
+                ? 'bg-bg-primary text-text-primary shadow-sm'
+                : 'text-text-muted hover:text-text-primary'
             }`}
           >
             Periods
@@ -260,10 +172,10 @@ export const SettingsScreen: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('subjects')}
-            className={`flex-1 py-2 rounded-[8px] text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'subjects'
-                ? 'bg-text-primary text-bg-primary'
-                : 'bg-bg-muted text-text-primary hover:bg-border'
+                ? 'bg-bg-primary text-text-primary shadow-sm'
+                : 'text-text-muted hover:text-text-primary'
             }`}
           >
             Subjects
@@ -272,287 +184,236 @@ export const SettingsScreen: React.FC = () => {
 
         {/* PERIODS TAB */}
         {activeTab === 'periods' && (
-          <div className="bg-bg-primary p-4 rounded-[10px] border border-border space-y-4">
-            {/* Header with Edit button */}
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-text-primary">
-                Period Configuration
-              </h3>
-              {!isEditingPeriods && hasPeriodsConfigured && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="px-3 py-2 text-xs"
-                  onClick={handleEditPeriods}
-                >
-                  <Pencil className="w-3.5 h-3.5 inline mr-1" />
-                  Edit
-                </Button>
-              )}
-            </div>
-
-            {isEditingPeriods ? (
-              // EDIT MODE
-              <>
-                <div>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    label="Period Duration (minutes)"
-                    value={periodDurationStr}
-                    placeholder="45"
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePeriodDurationChange(e.target.value)}
-                    fullWidth
-                    error={fieldErrors.periodDuration}
-                  />
-                  <p className="mt-1 text-xs text-text-muted">
-                    Typical: 45 or 50 minutes per period
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-text-secondary">
-                    Total Periods (per day)
-                  </h4>
-                  <p className="text-xs text-text-muted mb-2">
-                    Maximum 14 periods per day recommended
-                  </p>
-
-                  <div className="space-y-3">
-                    {DAY_LABELS.map(d => (
-                      <div
-                        key={d.id}
-                        className="bg-bg-secondary p-3 rounded-[10px] border border-border"
-                      >
-                        <p className="text-sm font-medium text-text-primary mb-2">
-                          {d.label}
-                        </p>
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="0"
-                          value={dayTotalsStr[d.id] ?? ''}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDayTotalChange(d.id, e.target.value)}
-                          fullWidth
-                          error={fieldErrors[`day-${d.id}`]}
-                        />
-                        <p className="mt-1 text-xs text-text-muted">
-                          Use 0 for a holiday (no periods)
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {settingsError && (
-                  <p className="text-sm text-danger">{settingsError}</p>
-                )}
-
-                <div className="flex gap-3">
-                  {hasPeriodsConfigured && (
-                    <Button variant="secondary" fullWidth onClick={handleCancelPeriods}>
-                      Cancel
-                    </Button>
-                  )}
-                  <Button variant="primary" fullWidth onClick={handleSaveSettings}>
-                    Save
-                  </Button>
-                </div>
-              </>
-            ) : (
-              // VIEW MODE
-              <div className="space-y-4">
-                <div className="bg-bg-secondary p-3 rounded-[10px] border border-border">
-                  <p className="text-xs text-text-muted mb-1">Period Duration</p>
-                  <p className="text-sm font-medium text-text-primary">
-                    {savedSettings?.periodDurationMinutes ?? 0} minutes
-                  </p>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-text-secondary mb-2">
-                    Periods per Day
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {DAY_LABELS.map(d => {
-                      const periods = savedSettings?.days[d.id]?.totalPeriods ?? 0;
-                      return (
-                        <div
-                          key={d.id}
-                          className={`p-3 rounded-[10px] border ${
-                            periods === 0
-                              ? 'bg-bg-muted border-border'
-                              : 'bg-bg-secondary border-border'
-                          }`}
-                        >
-                          <p className="text-xs text-text-muted">{d.label}</p>
-                          <p className={`text-sm font-medium ${
-                            periods === 0 ? 'text-text-muted' : 'text-text-primary'
-                          }`}>
-                            {periods === 0 ? 'Holiday' : `${periods} periods`}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
+          <div className="space-y-4">
+            {/* Period Duration */}
+            <div className="bg-bg-primary rounded-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-border">
+                <p className="text-xs font-medium text-text-muted uppercase tracking-wide">
+                  Period Duration
+                </p>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-sm text-text-primary">Duration</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setPeriodDuration(prev => Math.max(15, prev - 5))}
+                    className="w-8 h-8 rounded-full bg-bg-muted flex items-center justify-center hover:bg-border transition-colors"
+                  >
+                    <Minus className="w-4 h-4 text-text-primary" />
+                  </button>
+                  <span className="text-sm font-medium text-text-primary w-16 text-center">
+                    {periodDuration} min
+                  </span>
+                  <button
+                    onClick={() => setPeriodDuration(prev => Math.min(120, prev + 5))}
+                    className="w-8 h-8 rounded-full bg-bg-muted flex items-center justify-center hover:bg-border transition-colors"
+                  >
+                    <Plus className="w-4 h-4 text-text-primary" />
+                  </button>
                 </div>
               </div>
+            </div>
+
+            {/* Day-wise Periods */}
+            <div className="bg-bg-primary rounded-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-border">
+                <p className="text-xs font-medium text-text-muted uppercase tracking-wide">
+                  Periods per Day
+                </p>
+              </div>
+              
+              {DAY_LABELS.map((d, index) => {
+                const periods = dayTotals[d.id] ?? 0;
+                const isHoliday = periods === 0;
+                
+                return (
+                  <div
+                    key={d.id}
+                    className={`flex items-center justify-between px-4 py-3 ${
+                      index < DAY_LABELS.length - 1 ? 'border-b border-border' : ''
+                    }`}
+                  >
+                    <span className={`text-sm ${isHoliday ? 'text-text-muted' : 'text-text-primary'}`}>
+                      {d.label}
+                    </span>
+                    
+                    {isHoliday ? (
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-text-muted italic mr-2">Holiday</span>
+                        <button
+                          onClick={() => handleDayPeriodChange(d.id, 1)}
+                          className="w-8 h-8 rounded-full bg-bg-muted flex items-center justify-center hover:bg-border transition-colors"
+                        >
+                          <Plus className="w-4 h-4 text-text-primary" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleDayPeriodChange(d.id, -1)}
+                          className="w-8 h-8 rounded-full bg-bg-muted flex items-center justify-center hover:bg-border transition-colors"
+                        >
+                          <Minus className="w-4 h-4 text-text-primary" />
+                        </button>
+                        <span className="text-sm font-medium text-text-primary w-8 text-center">
+                          {periods}
+                        </span>
+                        <button
+                          onClick={() => handleDayPeriodChange(d.id, 1)}
+                          className="w-8 h-8 rounded-full bg-bg-muted flex items-center justify-center hover:bg-border transition-colors"
+                        >
+                          <Plus className="w-4 h-4 text-text-primary" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Save Button */}
+            {hasUnsavedPeriodChanges && (
+              <Button variant="primary" fullWidth onClick={handleSavePeriods}>
+                Save Changes
+              </Button>
             )}
           </div>
         )}
 
         {/* SUBJECTS TAB */}
         {activeTab === 'subjects' && (
-          <div className="bg-bg-primary p-4 rounded-[10px] border border-border space-y-4">
+          <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-text-primary">
-                Subjects ({isEditingSubjects ? editingSubjects.length : savedSubjects.length})
-              </h3>
-              {!isEditingSubjects && savedSubjects.length > 0 && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="px-3 py-2 text-xs"
-                  onClick={handleEditSubjects}
-                >
-                  <Pencil className="w-3.5 h-3.5 inline mr-1" />
-                  Edit
-                </Button>
-              )}
+            <div className="flex items-center justify-between px-1">
+              <p className="text-sm text-text-muted">
+                Subjects • {savedSubjects.length}
+              </p>
             </div>
 
-            {isEditingSubjects ? (
-              // EDIT MODE
-              <>
-                {editingSubjects.length === 0 ? (
-                  <p className="text-sm text-text-muted text-center py-4">
-                    No subjects yet. Add your first subject below.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {editingSubjects.map((subject) => (
-                      <div
-                        key={subject.id}
-                        className="bg-bg-secondary p-3 rounded-[10px] border border-border"
-                      >
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1 space-y-2">
-                            <Input
-                              type="text"
-                              placeholder="Subject name"
-                              value={subject.name}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSubjectChange(subject.id, { name: e.target.value })}
-                              fullWidth
-                              error={subjectErrors[subject.id]}
-                            />
-
-                            <div>
-                              <label className="block mb-2 text-sm font-medium text-text-primary">
-                                Type
-                              </label>
-                              <select
-                                value={subject.type}
-                                onChange={(e) =>
-                                  handleSubjectChange(subject.id, { type: e.target.value as SubjectType })
-                                }
-                                className="w-full px-4 py-3 rounded-[10px] border border-border bg-bg-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20"
-                              >
-                                <option value="theory">Theory</option>
-                                <option value="lab">Lab</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSubject(subject.id)}
-                            className="p-2 rounded-lg bg-danger/10 hover:bg-danger/20 transition-colors"
-                            aria-label="Delete subject"
-                          >
-                            <Trash2 className="w-4 h-4 text-danger" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  fullWidth
-                  onClick={handleAddSubject}
-                >
-                  <Plus className="w-4 h-4 inline mr-1" />
+            {/* Subject List */}
+            {savedSubjects.length === 0 ? (
+              <div className="bg-bg-primary rounded-lg p-8 text-center">
+                <p className="text-sm text-text-muted mb-4">
+                  No subjects added yet
+                </p>
+                <Button variant="primary" onClick={handleOpenAddSubject}>
+                  <Plus className="w-4 h-4 inline mr-2" />
                   Add Subject
                 </Button>
-
-                <div className="flex gap-3">
-                  {savedSubjects.length > 0 && (
-                    <Button variant="secondary" fullWidth onClick={handleCancelSubjects}>
-                      Cancel
-                    </Button>
-                  )}
-                  <Button 
-                    type="button" 
-                    variant="primary" 
-                    fullWidth 
-                    onClick={handleSaveSubjects}
-                    disabled={editingSubjects.length === 0}
-                  >
-                    Save
-                  </Button>
-                </div>
-              </>
+              </div>
             ) : (
-              // VIEW MODE
-              <>
-                {savedSubjects.length === 0 ? (
-                  <div className="text-center py-6">
-                    <p className="text-sm text-text-muted mb-4">
-                      No subjects configured yet.
-                    </p>
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={handleEditSubjects}
-                    >
-                      <Plus className="w-4 h-4 inline mr-1" />
-                      Add Subjects
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {savedSubjects.map((subject) => (
-                      <div
-                        key={subject.id}
-                        className="bg-bg-secondary p-3 rounded-[10px] border border-border flex items-center justify-between"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">
-                            {subject.name}
-                          </p>
-                          <p className="text-xs text-text-muted capitalize">
-                            {subject.type}
-                          </p>
-                        </div>
-                        <span className={`px-2 py-1 rounded-md text-xs font-medium ${
-                          subject.type === 'lab'
-                            ? 'bg-accent/10 text-accent'
-                            : 'bg-text-primary/10 text-text-primary'
-                        }`}>
-                          {subject.type === 'lab' ? 'Lab' : 'Theory'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
+              <div className="bg-bg-primary rounded-lg overflow-hidden">
+                {savedSubjects.map((subject, index) => (
+                  <button
+                    key={subject.id}
+                    onClick={() => handleOpenEditSubject(subject)}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-bg-muted transition-colors ${
+                      index < savedSubjects.length - 1 ? 'border-b border-border' : ''
+                    }`}
+                  >
+                    <span className="text-sm font-medium text-text-primary">
+                      {subject.name}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        subject.type === 'lab'
+                          ? 'bg-accent/10 text-accent'
+                          : 'bg-text-muted/10 text-text-muted'
+                      }`}>
+                        {subject.type === 'lab' ? 'Lab' : 'Theory'}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-text-muted" />
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         )}
       </div>
+
+      {/* FAB for adding subjects */}
+      {activeTab === 'subjects' && savedSubjects.length > 0 && (
+        <button
+          onClick={handleOpenAddSubject}
+          className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-text-primary text-bg-primary shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity z-40"
+          aria-label="Add subject"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* Subject Edit/Add Bottom Sheet */}
+      {(editingSubject || isAddingSubject) && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+          <div className="w-full max-w-md bg-bg-primary rounded-t-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-text-primary">
+                {isAddingSubject ? 'Add Subject' : 'Edit Subject'}
+              </h3>
+              <button
+                onClick={handleCloseSubjectModal}
+                className="p-2 rounded-full hover:bg-bg-muted transition-colors"
+              >
+                <X className="w-5 h-5 text-text-muted" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <Input
+                type="text"
+                label="Subject Name"
+                value={subjectName}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubjectName(e.target.value)}
+                placeholder="e.g., Mathematics"
+                fullWidth
+              />
+
+              <div>
+                <label className="block mb-2 text-sm font-medium text-text-primary">
+                  Type
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSubjectType('theory')}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      subjectType === 'theory'
+                        ? 'bg-text-primary text-bg-primary'
+                        : 'bg-bg-muted text-text-primary hover:bg-border'
+                    }`}
+                  >
+                    Theory
+                  </button>
+                  <button
+                    onClick={() => setSubjectType('lab')}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      subjectType === 'lab'
+                        ? 'bg-accent text-white'
+                        : 'bg-bg-muted text-text-primary hover:bg-border'
+                    }`}
+                  >
+                    Lab
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              {editingSubject && (
+                <Button variant="danger" onClick={handleDeleteSubject}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+              <Button variant="secondary" fullWidth onClick={handleCloseSubjectModal}>
+                Cancel
+              </Button>
+              <Button variant="primary" fullWidth onClick={handleSaveSubject}>
+                {isAddingSubject ? 'Add' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>
