@@ -1,13 +1,24 @@
 {
-  "name": "@figma/my-make-file",
+  "name": "student-attendance-calculator",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
+  "description": "A mobile-first attendance tracking application for students",
+  "author": "Your Name",
   "scripts": {
+    "dev": "vite",
     "build": "vite build",
-    "dev": "vite"
+    "preview": "vite preview",
+    "cap:sync": "npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "android:build": "npm run build && npx cap sync android && npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.0.1",
+    "@capacitor/cli": "^8.0.1",
+    "@capacitor/core": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@mui/icons-material": "7.3.5",
@@ -67,6 +78,7 @@
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
+    "typescript": "^5.9.3",
     "vite": "6.3.5"
   },
   "peerDependencies": {
