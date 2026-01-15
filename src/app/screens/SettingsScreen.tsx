@@ -301,7 +301,7 @@ export const SettingsScreen: React.FC = () => {
                     label="Period Duration (minutes)"
                     value={periodDurationStr}
                     placeholder="45"
-                    onChange={(e) => handlePeriodDurationChange(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePeriodDurationChange(e.target.value)}
                     fullWidth
                     error={fieldErrors.periodDuration}
                   />
@@ -332,7 +332,7 @@ export const SettingsScreen: React.FC = () => {
                           inputMode="numeric"
                           placeholder="0"
                           value={dayTotalsStr[d.id] ?? ''}
-                          onChange={(e) => handleDayTotalChange(d.id, e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDayTotalChange(d.id, e.target.value)}
                           fullWidth
                           error={fieldErrors[`day-${d.id}`]}
                         />
@@ -452,7 +452,7 @@ export const SettingsScreen: React.FC = () => {
                               type="text"
                               placeholder="Subject name"
                               value={subject.name}
-                              onChange={(e) => handleSubjectChange(subject.id, { name: e.target.value })}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSubjectChange(subject.id, { name: e.target.value })}
                               fullWidth
                               error={subjectErrors[subject.id]}
                             />
