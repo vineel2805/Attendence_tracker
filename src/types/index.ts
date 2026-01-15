@@ -65,6 +65,8 @@ export interface DailyAttendance {
   periods: {
     [periodId: string]: 'present' | 'absent';
   };
+  isHoliday?: boolean; // If true, this day is marked as a holiday
+  holidayReason?: string; // Optional reason for holiday
 }
 
 export interface AttendanceStats {

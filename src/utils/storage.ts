@@ -145,6 +145,45 @@ export const storage = {
     storage.setAttendance(records);
   },
 
+  // Holiday methods
+  markHoliday(date: string, reason?: string): void {
+    const records = storage.getAttendance();
+    const existingIndex = records.findIndex(r => r.date === date);
+    
+    const holidayRecord: DailyAttendance = {
+      date,
+      periods: {},
+      isHoliday: true,
+      holidayReason: reason || 'Holiday',
+    };
+
+    if (existingIndex >= 0) {
+      records[existingIndex] = holidayRecord;
+    } else {
+      records.push(holidayRecord);
+    }
+    
+    storage.setAttendance(records);
+  },
+
+  unmarkHoliday(date: string): void {
+    const records = storage.getAttendance();
+    const filtered = records.filter(r => r.date !== date);
+    storage.setAttendance(filtered);
+  },
+
+  isHoliday(date: string): boolean {
+    const records = storage.getAttendance();
+    const record = records.find(r => r.date === date);
+    return record?.isHoliday === true;
+  },
+
+  getHolidayReason(date: string): string | undefined {
+    const records = storage.getAttendance();
+    const record = records.find(r => r.date === date);
+    return record?.holidayReason;
+  },
+
   clearAll(): void {
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.TIMETABLE);

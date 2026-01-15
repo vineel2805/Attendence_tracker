@@ -11,6 +11,7 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { ProfileSetupScreen } from './screens/ProfileSetupScreen';
 import { SignupScreen } from './screens/SignupScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { CalendarScreen } from './screens/CalendarScreen';
 import { storage } from '@/utils/storage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -65,6 +66,15 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <AttendanceScreen />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute>
+                <CalendarScreen />
               </ProtectedRoute>
             }
           />

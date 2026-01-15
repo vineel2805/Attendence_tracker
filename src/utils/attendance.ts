@@ -15,6 +15,9 @@ export const calculateAttendanceStats = (
   let absentPeriods = 0;
 
   attendanceRecords.forEach(record => {
+    // Skip holidays - they don't count toward attendance
+    if (record.isHoliday) return;
+    
     Object.values(record.periods).forEach(status => {
       totalPeriods++;
       if (status === 'present') {

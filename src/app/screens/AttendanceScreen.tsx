@@ -3,8 +3,9 @@ import { AppBar } from '@/app/components/AppBar';
 import { BottomNav } from '@/app/components/BottomNav';
 import { PeriodCard } from '@/app/components/PeriodCard';
 import { Button } from '@/app/components/Button';
+import { Input } from '@/app/components/Input';
 import { EmptyState } from '@/app/components/EmptyState';
-import { Calendar, Check } from 'lucide-react';
+import { Calendar, Check, CalendarOff } from 'lucide-react';
 import { storage } from '@/utils/storage';
 import {
   formatDate,
@@ -25,6 +26,9 @@ export const AttendanceScreen: React.FC = () => {
   const [attendance, setAttendance] = useState<{ [key: string]: 'present' | 'absent' }>({});
   const [currentAttendance, setCurrentAttendance] = useState(0);
   const [needsSetup, setNeedsSetup] = useState(false);
+  const [isHoliday, setIsHoliday] = useState(false);
+  const [holidayReason, setHolidayReason] = useState('');
+  const [showHolidayForm, setShowHolidayForm] = useState(false);
 
   useEffect(() => {
     const settings = storage.getSettingsV2();
@@ -59,6 +63,13 @@ export const AttendanceScreen: React.FC = () => {
     const attendanceRecords = storage.getAttendance();
     const todayRecord = attendanceRecords.find(r => r.date === formatDate(date));
     if (todayRecord) {
+      // Check if today is marked as holiday
+      if (todayRecord.isHoliday) {
+        setIsHoliday(true);
+        setHolidayReason(todayRecord.holidayReason || 'Holiday');
+        return;
+      }
+
       // Check if period IDs match current timetable (timetable may have changed)
       const currentPeriodIds = new Set(periods.map(p => p.id));
       const recordedPeriodIds = new Set(Object.keys(todayRecord.periods));
@@ -92,6 +103,7 @@ export const AttendanceScreen: React.FC = () => {
     const dailyAttendance: DailyAttendance = {
       date: formatDate(date),
       periods: attendance,
+      isHoliday: false,
     };
 
     storage.addAttendance(dailyAttendance);
@@ -102,6 +114,32 @@ export const AttendanceScreen: React.FC = () => {
     setCurrentAttendance(stats.attendancePercentage);
     
     toast.success('Attendance saved successfully!');
+  };
+
+  const handleMarkHoliday = () => {
+    storage.markHoliday(formatDate(date), holidayReason || 'Holiday');
+    setIsHoliday(true);
+    setShowHolidayForm(false);
+    
+    // Recalculate stats
+    const attendanceRecords = storage.getAttendance();
+    const stats = calculateAttendanceStats(attendanceRecords);
+    setCurrentAttendance(stats.attendancePercentage);
+    
+    toast.success('Today marked as holiday!');
+  };
+
+  const handleRemoveHoliday = () => {
+    storage.unmarkHoliday(formatDate(date));
+    setIsHoliday(false);
+    setHolidayReason('');
+    
+    // Recalculate stats
+    const attendanceRecords = storage.getAttendance();
+    const stats = calculateAttendanceStats(attendanceRecords);
+    setCurrentAttendance(stats.attendancePercentage);
+    
+    toast.success('Holiday removed!');
   };
 
   const isAllMarked = periods.length > 0 && periods.every(p => attendance[p.id]);
@@ -136,7 +174,20 @@ export const AttendanceScreen: React.FC = () => {
           </div>
         </div>
 
-        {periods.length === 0 ? (
+        {isHoliday ? (
+          <div className="bg-bg-primary p-4 rounded-[10px] border border-border space-y-4">
+            <div className="bg-accent/10 p-4 rounded-lg flex items-center gap-3">
+              <CalendarOff className="w-8 h-8 text-accent" />
+              <div>
+                <p className="text-sm font-medium text-text-primary">Today is a Holiday</p>
+                <p className="text-xs text-text-muted">{holidayReason}</p>
+              </div>
+            </div>
+            <Button variant="secondary" fullWidth onClick={handleRemoveHoliday}>
+              Remove Holiday
+            </Button>
+          </div>
+        ) : periods.length === 0 ? (
           <EmptyState
             icon={Calendar}
             title={needsSetup ? 'Setup Required' : 'No Classes Today'}
@@ -150,36 +201,77 @@ export const AttendanceScreen: React.FC = () => {
           />
         ) : (
           <>
-            {/* Periods List */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-text-secondary">
-                Today's Classes ({periods.length})
-              </h3>
-              {periods.map(period => (
-                <PeriodCard
-                  key={period.id}
-                  period={period}
-                  status={attendance[period.id]}
-                  onStatusChange={(status) => handleStatusChange(period.id, status)}
+            {/* Holiday Option */}
+            {!showHolidayForm && (
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => setShowHolidayForm(true)}
+              >
+                <CalendarOff className="w-4 h-4 inline mr-2" />
+                Mark Today as Holiday
+              </Button>
+            )}
+
+            {showHolidayForm && (
+              <div className="bg-bg-primary p-4 rounded-[10px] border border-border space-y-3">
+                <p className="text-xs text-text-muted">
+                  This will skip attendance for today. Use for public holidays, festivals, etc.
+                </p>
+                <Input
+                  label="Holiday Reason (optional)"
+                  placeholder="e.g., Independence Day, Festival"
+                  value={holidayReason}
+                  onChange={(e) => setHolidayReason(e.target.value)}
+                  fullWidth
                 />
-              ))}
-            </div>
+                <div className="flex gap-3">
+                  <Button variant="secondary" fullWidth onClick={() => setShowHolidayForm(false)}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" fullWidth onClick={handleMarkHoliday}>
+                    Confirm Holiday
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Periods List */}
+            {!showHolidayForm && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-text-secondary">
+                  Today's Classes ({periods.length})
+                </h3>
+                {periods.map(period => (
+                  <PeriodCard
+                    key={period.id}
+                    period={period}
+                    status={attendance[period.id]}
+                    onStatusChange={(status) => handleStatusChange(period.id, status)}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Save Button */}
-            {periods.length > 0 && !isAllMarked && (
-              <p className="text-sm text-text-muted text-center">
-                Mark each period as Present or Absent to submit
-              </p>
+            {!showHolidayForm && (
+              <>
+                {periods.length > 0 && !isAllMarked && (
+                  <p className="text-sm text-text-muted text-center">
+                    Mark each period as Present or Absent to submit
+                  </p>
+                )}
+                <Button
+                  onClick={handleSave}
+                  disabled={!isAllMarked}
+                  fullWidth
+                  variant="primary"
+                >
+                  <Check className="w-4 h-4 inline mr-2" />
+                  Submit Today&apos;s Attendance
+                </Button>
+              </>
             )}
-            <Button
-              onClick={handleSave}
-              disabled={!isAllMarked}
-              fullWidth
-              variant="primary"
-            >
-              <Check className="w-4 h-4 inline mr-2" />
-              Submit Today&apos;s Attendance
-            </Button>
           </>
         )}
       </div>
