@@ -120,4 +120,15 @@ const App: React.FC = () => {
           position="top-center"
           toastOptions={{
             style: {
-      
+              background: 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-default)',
+            },
+          }}
+        />
+      </BrowserRouter>
+    </ThemeProvider>
+  );
+};
+
+export default App;

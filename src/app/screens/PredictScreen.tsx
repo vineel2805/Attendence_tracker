@@ -25,8 +25,7 @@ export const PredictScreen: React.FC = () => {
 
   useEffect(() => {
     const attendanceRecords = storage.getAttendance();
-    const timetable = storage.getTimetable();
-    const stats = calculateAttendanceStats(attendanceRecords, timetable);
+    const stats = calculateAttendanceStats(attendanceRecords);
     setCurrentStats(stats);
   }, []);
 

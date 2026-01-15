@@ -135,4 +135,26 @@ export const ProfileScreen: React.FC = () => {
                   variant="secondary"
                   fullWidth
                 >
-                  
+                  <SettingsIcon className="w-4 h-4 inline mr-2" />
+                  Settings
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Logout Button */}
+        <Button
+          onClick={handleLogout}
+          variant="danger"
+          fullWidth
+        >
+          <LogOut className="w-4 h-4 inline mr-2" />
+          Logout
+        </Button>
+      </div>
+
+      <BottomNav />
+    </div>
+  );
+};

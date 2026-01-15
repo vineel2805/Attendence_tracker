@@ -18,8 +18,7 @@ export const DashboardScreen: React.FC = () => {
 
   useEffect(() => {
     const attendanceRecords = storage.getAttendance();
-    const timetable = storage.getTimetable();
-    const calculatedStats = calculateAttendanceStats(attendanceRecords, timetable);
+    const calculatedStats = calculateAttendanceStats(attendanceRecords);
     setStats(calculatedStats);
   }, []);
 

@@ -6,33 +6,78 @@ import { Button } from '@/app/components/Button';
 import { EmptyState } from '@/app/components/EmptyState';
 import { Calendar, Check } from 'lucide-react';
 import { storage } from '@/utils/storage';
-import { formatDate, getDayName, calculateAttendanceStats, expandPeriodsForDay } from '@/utils/attendance';
+import {
+  formatDate,
+  getDayName,
+  calculateAttendanceStats,
+  getDayIdFromDate,
+  buildOccupiedSlotsForDay,
+  isSetupComplete,
+} from '@/utils/attendance';
 import { Period, DailyAttendance } from '@/types';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export const AttendanceScreen: React.FC = () => {
+  const navigate = useNavigate();
   const [date] = useState(new Date());
   const [periods, setPeriods] = useState<Period[]>([]);
   const [attendance, setAttendance] = useState<{ [key: string]: 'present' | 'absent' }>({});
   const [currentAttendance, setCurrentAttendance] = useState(0);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
-    // Get today's timetable
-    const timetable = storage.getTimetable();
-    const dayName = getDayName(date);
-    const todayBasePeriods = timetable[dayName] || [];
-    const expanded = expandPeriodsForDay(todayBasePeriods);
-    setPeriods(expanded);
+    const settings = storage.getSettingsV2();
+    const subjects = storage.getSubjectsV2();
+    const timetableV2 = storage.getTimetableV2();
+
+    const dayId = getDayIdFromDate(date);
+    const totalPeriodsOfDay = settings.days[dayId]?.totalPeriods ?? 0;
+
+    if (!isSetupComplete(settings, subjects) || totalPeriodsOfDay === 0) {
+      setNeedsSetup(true);
+      setPeriods([]);
+    } else {
+      setNeedsSetup(false);
+      const slots = buildOccupiedSlotsForDay({
+        dayId,
+        timetable: timetableV2,
+        subjects,
+        totalPeriods: totalPeriodsOfDay,
+      });
+
+      // Only conducted periods (occupied slots) become attendance rows.
+      const todayPeriods: Period[] = slots.map(slot => ({
+        id: `${formatDate(date)}-${dayId}-P${slot.periodIndex}`,
+        periodNumber: slot.periodIndex,
+        subject: slot.subjectName,
+      }));
+      setPeriods(todayPeriods);
+    }
 
     // Check if attendance already marked
     const attendanceRecords = storage.getAttendance();
     const todayRecord = attendanceRecords.find(r => r.date === formatDate(date));
     if (todayRecord) {
+      // Check if period IDs match current timetable (timetable may have changed)
+      const currentPeriodIds = new Set(periods.map(p => p.id));
+      const recordedPeriodIds = new Set(Object.keys(todayRecord.periods));
+      const hasMismatch = Array.from(recordedPeriodIds).some(id => !currentPeriodIds.has(id)) ||
+                          Array.from(currentPeriodIds).some(id => !recordedPeriodIds.has(id));
+      
+      if (hasMismatch && periods.length > 0) {
+        // Show non-blocking notice if timetable changed
+        toast.info('Timetable changed since this attendance was first recorded; some periods may not line up exactly.', {
+          duration: 5000,
+        });
+      }
+      
       setAttendance(todayRecord.periods);
     }
 
     // Calculate current attendance percentage
-    const stats = calculateAttendanceStats(attendanceRecords, timetable);
+    // Stats are period-accurate because records store per-conducted-period status.
+    const stats = calculateAttendanceStats(attendanceRecords);
     setCurrentAttendance(stats.attendancePercentage);
   }, [date]);
 
@@ -52,9 +97,8 @@ export const AttendanceScreen: React.FC = () => {
     storage.addAttendance(dailyAttendance);
     
     // Recalculate stats
-    const timetable = storage.getTimetable();
     const attendanceRecords = storage.getAttendance();
-    const stats = calculateAttendanceStats(attendanceRecords, timetable);
+    const stats = calculateAttendanceStats(attendanceRecords);
     setCurrentAttendance(stats.attendancePercentage);
     
     toast.success('Attendance saved successfully!');
@@ -95,8 +139,14 @@ export const AttendanceScreen: React.FC = () => {
         {periods.length === 0 ? (
           <EmptyState
             icon={Calendar}
-            title="No Classes Today"
-            description="There are no classes scheduled for today. Set up your timetable to start tracking attendance."
+            title={needsSetup ? 'Setup Required' : 'No Classes Today'}
+            description={
+              needsSetup
+                ? 'Configure your day periods and subjects in Settings, then add classes to your timetable.'
+                : 'There are no conducted classes scheduled for today.'
+            }
+            actionLabel={needsSetup ? 'Go to Settings' : undefined}
+            onAction={needsSetup ? () => navigate('/settings') : undefined}
           />
         ) : (
           <>
@@ -116,6 +166,11 @@ export const AttendanceScreen: React.FC = () => {
             </div>
 
             {/* Save Button */}
+            {periods.length > 0 && !isAllMarked && (
+              <p className="text-sm text-text-muted text-center">
+                Mark each period as Present or Absent to submit
+              </p>
+            )}
             <Button
               onClick={handleSave}
               disabled={!isAllMarked}
@@ -123,5 +178,13 @@ export const AttendanceScreen: React.FC = () => {
               variant="primary"
             >
               <Check className="w-4 h-4 inline mr-2" />
-              Save Attendance
-            </Butto
+              Submit Today&apos;s Attendance
+            </Button>
+          </>
+        )}
+      </div>
+
+      <BottomNav />
+    </div>
+  );
+};
