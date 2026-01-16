@@ -388,7 +388,7 @@ export const SettingsScreen: React.FC = () => {
                     onClick={() => setSubjectType('lab')}
                     className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       subjectType === 'lab'
-                        ? 'bg-accent text-white'
+                        ? 'bg-text-primary text-bg-primary'
                         : 'bg-bg-muted text-text-primary hover:bg-border'
                     }`}
                   >
