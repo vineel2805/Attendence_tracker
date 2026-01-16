@@ -1,6 +1,8 @@
 # Student Attendance Calculator
 
-A modern, mobile-first attendance tracking application for students built with React, TypeScript, and Tailwind CSS.
+A modern, mobile-first attendance tracking application for students built with React, TypeScript, and Tailwind CSS. Features cloud sync with Firebase for cross-device access.
+
+🌐 **Live Demo:** [https://attendence-tracker2.web.app](https://attendence-tracker2.web.app)
 
 ## Features
 
@@ -50,7 +52,10 @@ A modern, mobile-first attendance tracking application for students built with R
 - **Icons:** Lucide React
 - **Notifications:** Sonner (toast notifications)
 - **Build Tool:** Vite
-- **Storage:** LocalStorage for data persistence
+- **Backend:** Firebase (Authentication + Firestore)
+- **Hosting:** Firebase Hosting
+- **Mobile:** Capacitor (Android)
+- **Storage:** LocalStorage cache + Cloud sync
 
 ## Getting Started
 
@@ -63,8 +68,8 @@ A modern, mobile-first attendance tracking application for students built with R
 
 ```bash
 # Clone the repository
-git clone <https://github.com/vineel2805/Attendence_tracker.git>
-cd "Attendence_tracker.git"
+git clone https://github.com/vineel2805/Attendence_tracker.git
+cd Attendence_tracker
 
 # Install dependencies
 npm install
@@ -73,10 +78,33 @@ npm install
 npm run dev
 ```
 
+### Environment Setup
+
+Create a `.env` file in the root directory:
+
+```env
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+```
+
+See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for detailed Firebase configuration instructions.
+
 ### Build for Production
 
 ```bash
 npm run build
+```
+
+### Deploy to Firebase Hosting
+
+```bash
+npm install -g firebase-tools
+firebase login
+firebase deploy --only hosting
 ```
 
 ## Project Structure
@@ -112,7 +140,10 @@ src/
 │   └── index.ts        # TypeScript type definitions
 ├── utils/
 │   ├── attendance.ts   # Attendance calculation utilities
-│   └── storage.ts      # LocalStorage wrapper
+│   ├── storage.ts      # LocalStorage wrapper with cloud sync
+│   ├── firebase.ts     # Firebase configuration
+│   ├── authService.ts  # Authentication service
+│   └── firestoreService.ts  # Firestore database operations
 └── main.tsx            # App entry point
 ```
 
@@ -141,6 +172,23 @@ The app supports both dark and light themes with a professional academic look:
 - Period configuration uses +/- steppers
 - Changes are tracked and saved on demand
 - Bottom sheet modals for subject editing
+
+## Authentication
+
+The app supports multiple authentication methods:
+- **Email/Password** - Traditional signup with email verification
+- **Google Sign-In** - One-click authentication
+- **Password Reset** - Email-based password recovery
+
+## Cloud Sync
+
+All data is automatically synced to Firebase Firestore:
+- Settings and preferences
+- Subjects and timetable
+- Attendance records
+- Profile information
+
+Data syncs across all devices logged into the same account.
 
 ## License
 

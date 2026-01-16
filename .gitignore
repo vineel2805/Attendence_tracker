@@ -73,3 +73,18 @@ temp/
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+
+# Firebase
+.firebase/
+*.log
+firebase-debug.log
+firebase-debug.*.log
+
+# Android build files (keep source, ignore build outputs)
+android/app/build/
+android/build/
+android/capacitor-cordova-android-plugins/build/
+android/.gradle/
+android/local.properties
+*.keystore
+*.jks
