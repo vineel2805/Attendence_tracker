@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/app/components/Input';
 import { Button } from '@/app/components/Button';
 import { storage } from '@/utils/storage';
-import { User } from '@/types';
+import { authService } from '@/utils/authService';
 
 export const SignupScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -11,8 +11,9 @@ export const SignupScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -26,16 +27,27 @@ export const SignupScreen: React.FC = () => {
       return;
     }
 
-    // Mock signup
-    const user: User = {
-      uid: Date.now().toString(),
-      email,
-      emailVerified: true,
-      profileComplete: false,
-    };
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
 
-    storage.setUser(user);
-    navigate('/profile/setup');
+    setLoading(true);
+
+    const { user, error: authError } = await authService.signUp(email, password);
+
+    if (authError) {
+      setError(authError);
+      setLoading(false);
+      return;
+    }
+
+    if (user) {
+      storage.setUser(user);
+      navigate('/profile/setup');
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -58,15 +70,17 @@ export const SignupScreen: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             fullWidth
+            disabled={loading}
           />
 
           <Input
             type="password"
             label="Password"
-            placeholder="Create a password"
+            placeholder="Create a password (min 6 characters)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             fullWidth
+            disabled={loading}
           />
 
           <Input
@@ -76,14 +90,15 @@ export const SignupScreen: React.FC = () => {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             fullWidth
+            disabled={loading}
           />
 
           {error && (
             <p className="text-sm text-danger">{error}</p>
           )}
 
-          <Button type="submit" variant="primary" fullWidth>
-            Sign Up
+          <Button type="submit" variant="primary" fullWidth disabled={loading}>
+            {loading ? 'Creating account...' : 'Sign Up'}
           </Button>
 
           <div className="text-center">
@@ -91,6 +106,7 @@ export const SignupScreen: React.FC = () => {
               type="button"
               onClick={() => navigate('/login')}
               className="text-sm text-text-secondary hover:text-text-primary"
+              disabled={loading}
             >
               Already have an account? <span className="font-medium">Login</span>
             </button>

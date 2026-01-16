@@ -3,15 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/app/components/Input';
 import { Button } from '@/app/components/Button';
 import { storage } from '@/utils/storage';
-import { User } from '@/types';
+import { authService } from '@/utils/authService';
 
 export const LoginScreen: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -20,16 +21,28 @@ export const LoginScreen: React.FC = () => {
       return;
     }
 
-    // Mock login - in real app, authenticate with backend
-    const user: User = {
-      uid: Date.now().toString(),
-      email,
-      emailVerified: true,
-      profileComplete: false,
-    };
+    setLoading(true);
 
-    storage.setUser(user);
-    navigate('/profile/setup');
+    const { user, error: authError } = await authService.login(email, password);
+
+    if (authError) {
+      setError(authError);
+      setLoading(false);
+      return;
+    }
+
+    if (user) {
+      storage.setUser(user);
+      await storage.syncFromCloud(); // Sync data from Firestore
+
+      if (user.profileComplete) {
+        navigate('/dashboard');
+      } else {
+        navigate('/profile/setup');
+      }
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -52,6 +65,7 @@ export const LoginScreen: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             fullWidth
+            disabled={loading}
           />
 
           <Input
@@ -61,14 +75,15 @@ export const LoginScreen: React.FC = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             fullWidth
+            disabled={loading}
           />
 
           {error && (
             <p className="text-sm text-danger">{error}</p>
           )}
 
-          <Button type="submit" variant="primary" fullWidth>
-            Login
+          <Button type="submit" variant="primary" fullWidth disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
           </Button>
 
           <div className="text-center">
@@ -76,6 +91,7 @@ export const LoginScreen: React.FC = () => {
               type="button"
               onClick={() => navigate('/signup')}
               className="text-sm text-text-secondary hover:text-text-primary"
+              disabled={loading}
             >
               Don't have an account? <span className="font-medium">Sign up</span>
             </button>

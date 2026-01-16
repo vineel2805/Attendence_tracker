@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/app/components/Input';
 import { Button } from '@/app/components/Button';
 import { storage } from '@/utils/storage';
+import { firestoreService } from '@/utils/firestoreService';
 
 export const ProfileSetupScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -11,8 +12,9 @@ export const ProfileSetupScreen: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [rollNumber, setRollNumber] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSetup = (e: React.FormEvent) => {
+  const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -21,16 +23,37 @@ export const ProfileSetupScreen: React.FC = () => {
       return;
     }
 
-    if (user) {
+    if (!user) {
+      setError('User not found. Please login again.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
       const updatedUser = {
         ...user,
         fullName,
         rollNumber,
         profileComplete: true,
       };
+
+      // Update Firestore
+      await firestoreService.updateUserDocument(user.uid, {
+        fullName,
+        rollNumber,
+        profileComplete: true,
+      });
+
+      // Update localStorage
       storage.setUser(updatedUser);
+
       navigate('/timetable');
+    } catch (err) {
+      setError('Failed to save profile. Please try again.');
     }
+
+    setLoading(false);
   };
 
   return (
@@ -54,6 +77,7 @@ export const ProfileSetupScreen: React.FC = () => {
             onChange={(e) => setFullName(e.target.value)}
             fullWidth
             required
+            disabled={loading}
           />
 
           <Input
@@ -64,6 +88,7 @@ export const ProfileSetupScreen: React.FC = () => {
             onChange={(e) => setRollNumber(e.target.value)}
             fullWidth
             required
+            disabled={loading}
           />
 
           <Input
@@ -79,8 +104,8 @@ export const ProfileSetupScreen: React.FC = () => {
             <p className="text-sm text-danger">{error}</p>
           )}
 
-          <Button type="submit" variant="primary" fullWidth>
-            Continue
+          <Button type="submit" variant="primary" fullWidth disabled={loading}>
+            {loading ? 'Saving...' : 'Continue'}
           </Button>
         </form>
       </div>

@@ -8,6 +8,7 @@ import {
   DayId,
   DayConfig,
 } from '@/types';
+import { firestoreService } from './firestoreService';
 
 const STORAGE_KEYS = {
   USER: 'attendance_user',
@@ -28,6 +29,12 @@ const DEFAULT_DAY_CONFIGS: Record<DayId, DayConfig> = {
   Sun: { day: 'Sun', totalPeriods: 0 },
 };
 
+// Helper to get current user UID
+const getUid = (): string | null => {
+  const user = storage.getUser();
+  return user?.uid || null;
+};
+
 export const storage = {
   // User methods
   getUser(): User | null {
@@ -41,6 +48,18 @@ export const storage = {
 
   clearUser(): void {
     localStorage.removeItem(STORAGE_KEYS.USER);
+  },
+
+  // Async update user to Firestore
+  async updateUserAsync(updates: Partial<User>): Promise<void> {
+    const uid = getUid();
+    if (uid) {
+      await firestoreService.updateUserDocument(uid, updates);
+      const current = this.getUser();
+      if (current) {
+        this.setUser({ ...current, ...updates });
+      }
+    }
   },
 
   /**
@@ -88,6 +107,11 @@ export const storage = {
 
   setSettingsV2(settings: AppSettingsV2): void {
     localStorage.setItem(STORAGE_KEYS.SETTINGS_V2, JSON.stringify(settings));
+    // Sync to Firestore
+    const uid = getUid();
+    if (uid) {
+      firestoreService.saveSettings(uid, settings).catch(console.error);
+    }
   },
 
   // Subjects V2 methods
@@ -104,6 +128,11 @@ export const storage = {
 
   setSubjectsV2(subjects: SubjectV2[]): void {
     localStorage.setItem(STORAGE_KEYS.SUBJECTS_V2, JSON.stringify(subjects));
+    // Sync to Firestore
+    const uid = getUid();
+    if (uid) {
+      firestoreService.saveSubjects(uid, subjects).catch(console.error);
+    }
   },
 
   // Timetable V2 methods
@@ -120,6 +149,11 @@ export const storage = {
 
   setTimetableV2(timetable: TimetableV2): void {
     localStorage.setItem(STORAGE_KEYS.TIMETABLE_V2, JSON.stringify(timetable));
+    // Sync to Firestore
+    const uid = getUid();
+    if (uid) {
+      firestoreService.saveTimetable(uid, timetable).catch(console.error);
+    }
   },
 
   // Attendance methods
@@ -130,6 +164,11 @@ export const storage = {
 
   setAttendance(attendance: DailyAttendance[]): void {
     localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
+    // Sync to Firestore
+    const uid = getUid();
+    if (uid) {
+      firestoreService.saveAttendance(uid, attendance).catch(console.error);
+    }
   },
 
   addAttendance(dailyAttendance: DailyAttendance): void {
@@ -191,5 +230,49 @@ export const storage = {
     localStorage.removeItem(STORAGE_KEYS.SETTINGS_V2);
     localStorage.removeItem(STORAGE_KEYS.SUBJECTS_V2);
     localStorage.removeItem(STORAGE_KEYS.TIMETABLE_V2);
+  },
+
+  // Sync from Firestore to localStorage (call after login)
+  async syncFromCloud(): Promise<void> {
+    const uid = getUid();
+    if (!uid) return;
+
+    try {
+      const [settings, subjects, timetable, attendance] = await Promise.all([
+        firestoreService.getSettings(uid),
+        firestoreService.getSubjects(uid),
+        firestoreService.getTimetable(uid),
+        firestoreService.getAttendance(uid),
+      ]);
+
+      localStorage.setItem(STORAGE_KEYS.SETTINGS_V2, JSON.stringify(settings));
+      localStorage.setItem(STORAGE_KEYS.SUBJECTS_V2, JSON.stringify(subjects));
+      localStorage.setItem(STORAGE_KEYS.TIMETABLE_V2, JSON.stringify(timetable));
+      localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
+    } catch (e) {
+      console.error('Failed to sync from cloud:', e);
+    }
+  },
+
+  // Push local data to Firestore (useful for migration)
+  async syncToCloud(): Promise<void> {
+    const uid = getUid();
+    if (!uid) return;
+
+    try {
+      const settings = this.getSettingsV2();
+      const subjects = this.getSubjectsV2();
+      const timetable = this.getTimetableV2();
+      const attendance = this.getAttendance();
+
+      await Promise.all([
+        firestoreService.saveSettings(uid, settings),
+        firestoreService.saveSubjects(uid, subjects),
+        firestoreService.saveTimetable(uid, timetable),
+        firestoreService.saveAttendance(uid, attendance),
+      ]);
+    } catch (e) {
+      console.error('Failed to sync to cloud:', e);
+    }
   },
 };
