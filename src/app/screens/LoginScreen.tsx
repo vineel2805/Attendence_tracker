@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/app/components/Input';
 import { Button } from '@/app/components/Button';
+import { GoogleSignInButton } from '@/app/components/GoogleSignInButton';
 import { storage } from '@/utils/storage';
 import { authService } from '@/utils/authService';
 
@@ -11,6 +12,7 @@ export const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +35,39 @@ export const LoginScreen: React.FC = () => {
 
     if (user) {
       storage.setUser(user);
-      await storage.syncFromCloud(); // Sync data from Firestore
+      await storage.syncFromCloud();
+
+      // Check email verification for email/password users
+      if (!user.emailVerified) {
+        navigate('/verify-email');
+      } else if (user.profileComplete) {
+        navigate('/dashboard');
+      } else {
+        navigate('/profile/setup');
+      }
+    }
+
+    setLoading(false);
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setGoogleLoading(true);
+
+    const { user, error: authError, isNewUser } = await authService.signInWithGoogle();
+
+    if (authError) {
+      setError(authError);
+      setGoogleLoading(false);
+      return;
+    }
+
+    if (user) {
+      storage.setUser(user);
+      
+      if (!isNewUser) {
+        await storage.syncFromCloud();
+      }
 
       if (user.profileComplete) {
         navigate('/dashboard');
@@ -42,7 +76,7 @@ export const LoginScreen: React.FC = () => {
       }
     }
 
-    setLoading(false);
+    setGoogleLoading(false);
   };
 
   return (
@@ -65,33 +99,60 @@ export const LoginScreen: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             fullWidth
-            disabled={loading}
+            disabled={loading || googleLoading}
           />
 
-          <Input
-            type="password"
-            label="Password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            fullWidth
-            disabled={loading}
-          />
+          <div>
+            <Input
+              type="password"
+              label="Password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              fullWidth
+              disabled={loading || googleLoading}
+            />
+            <div className="text-right mt-1">
+              <button
+                type="button"
+                onClick={() => navigate('/forgot-password')}
+                className="text-xs text-accent hover:underline"
+                disabled={loading || googleLoading}
+              >
+                Forgot password?
+              </button>
+            </div>
+          </div>
 
           {error && (
             <p className="text-sm text-danger">{error}</p>
           )}
 
-          <Button type="submit" variant="primary" fullWidth disabled={loading}>
+          <Button type="submit" variant="primary" fullWidth disabled={loading || googleLoading}>
             {loading ? 'Logging in...' : 'Login'}
           </Button>
 
-          <div className="text-center">
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-bg-primary px-2 text-text-muted">Or continue with</span>
+            </div>
+          </div>
+
+          <GoogleSignInButton
+            onClick={handleGoogleSignIn}
+            loading={googleLoading}
+            disabled={loading}
+          />
+
+          <div className="text-center pt-4">
             <button
               type="button"
               onClick={() => navigate('/signup')}
               className="text-sm text-text-secondary hover:text-text-primary"
-              disabled={loading}
+              disabled={loading || googleLoading}
             >
               Don't have an account? <span className="font-medium">Sign up</span>
             </button>

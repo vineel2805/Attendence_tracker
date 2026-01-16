@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/app/components/Input';
 import { Button } from '@/app/components/Button';
+import { GoogleSignInButton } from '@/app/components/GoogleSignInButton';
 import { storage } from '@/utils/storage';
 import { authService } from '@/utils/authService';
 
@@ -12,6 +13,7 @@ export const SignupScreen: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,10 +46,40 @@ export const SignupScreen: React.FC = () => {
 
     if (user) {
       storage.setUser(user);
-      navigate('/profile/setup');
+      // Redirect to email verification screen
+      navigate('/verify-email');
     }
 
     setLoading(false);
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setGoogleLoading(true);
+
+    const { user, error: authError, isNewUser } = await authService.signInWithGoogle();
+
+    if (authError) {
+      setError(authError);
+      setGoogleLoading(false);
+      return;
+    }
+
+    if (user) {
+      storage.setUser(user);
+      
+      if (!isNewUser) {
+        await storage.syncFromCloud();
+      }
+
+      if (user.profileComplete) {
+        navigate('/dashboard');
+      } else {
+        navigate('/profile/setup');
+      }
+    }
+
+    setGoogleLoading(false);
   };
 
   return (
@@ -70,7 +102,7 @@ export const SignupScreen: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             fullWidth
-            disabled={loading}
+            disabled={loading || googleLoading}
           />
 
           <Input
@@ -80,7 +112,7 @@ export const SignupScreen: React.FC = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             fullWidth
-            disabled={loading}
+            disabled={loading || googleLoading}
           />
 
           <Input
@@ -90,23 +122,39 @@ export const SignupScreen: React.FC = () => {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             fullWidth
-            disabled={loading}
+            disabled={loading || googleLoading}
           />
 
           {error && (
             <p className="text-sm text-danger">{error}</p>
           )}
 
-          <Button type="submit" variant="primary" fullWidth disabled={loading}>
+          <Button type="submit" variant="primary" fullWidth disabled={loading || googleLoading}>
             {loading ? 'Creating account...' : 'Sign Up'}
           </Button>
 
-          <div className="text-center">
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-bg-primary px-2 text-text-muted">Or continue with</span>
+            </div>
+          </div>
+
+          <GoogleSignInButton
+            onClick={handleGoogleSignIn}
+            loading={googleLoading}
+            disabled={loading}
+            text="Sign up with Google"
+          />
+
+          <div className="text-center pt-4">
             <button
               type="button"
               onClick={() => navigate('/login')}
               className="text-sm text-text-secondary hover:text-text-primary"
-              disabled={loading}
+              disabled={loading || googleLoading}
             >
               Already have an account? <span className="font-medium">Login</span>
             </button>

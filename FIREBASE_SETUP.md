@@ -52,7 +52,14 @@ Complete guide to set up Firebase Authentication and Firestore for your app.
 4. Leave "Email link (passwordless sign-in)" disabled
 5. Click **Save**
 
-### Step 2.3: (Optional) Configure Password Policy
+### Step 2.3: Enable Google Sign-In Provider
+1. Still in the **Sign-in method** tab
+2. Click **Google**
+3. Toggle **Enable** to ON
+4. Enter a **Project support email** (your email)
+5. Click **Save**
+
+### Step 2.4: (Optional) Configure Password Policy
 1. Go to **Settings** tab in Authentication
 2. Under **Password policy**, you can set:
    - Minimum password length (default: 6)

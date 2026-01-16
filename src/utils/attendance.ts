@@ -1,4 +1,4 @@
-import { DailyAttendance, AttendanceStats, DayId, TimetableV2, SubjectV2, Period } from '@/types';
+import { DailyAttendance, AttendanceStats, DayId, TimetableV2, SubjectV2, Period, ClassEntry } from '@/types';
 
 /**
  * Calculate attendance statistics from attendance records only.
@@ -83,13 +83,13 @@ export const buildOccupiedSlotsForDay = (params: {
   totalPeriods: number;
 }): Array<{ periodIndex: number; subjectId: string; subjectName: string; entryId: string }> => {
   const { dayId, timetable, subjects, totalPeriods } = params;
-  const entries = timetable[dayId] || [];
+  const entries = (timetable as Record<DayId, ClassEntry[] | undefined>)[dayId] || [];
 
   const subjectMap = new Map(subjects.map(s => [s.id, s]));
   const slots: Array<{ periodIndex: number; subjectId: string; subjectName: string; entryId: string }> = [];
 
   const occupied = new Map<number, { subjectId: string; subjectName: string; entryId: string }>();
-  entries.forEach(entry => {
+  entries.forEach((entry: ClassEntry) => {
     const s = entry.startPeriod;
     const e = entry.startPeriod + entry.duration - 1;
     const subj = subjectMap.get(entry.subjectId);

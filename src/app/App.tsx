@@ -12,6 +12,8 @@ import { ProfileSetupScreen } from './screens/ProfileSetupScreen';
 import { SignupScreen } from './screens/SignupScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
+import { ForgotPasswordScreen } from './screens/ForgotPasswordScreen';
+import { VerifyEmailScreen } from './screens/VerifyEmailScreen';
 import { storage } from '@/utils/storage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -43,6 +45,8 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/login" element={<LoginScreen />} />
           <Route path="/signup" element={<SignupScreen />} />
+          <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
+          <Route path="/verify-email" element={<VerifyEmailScreen />} />
           
           <Route
             path="/profile/setup"
