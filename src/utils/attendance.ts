@@ -146,6 +146,98 @@ export const getDayName = (date: Date): string => {
 };
 
 /**
+ * Calculate attendance statistics per subject
+ */
+export interface SubjectAttendanceStats {
+  subjectId: string;
+  subjectName: string;
+  subjectType: 'theory' | 'lab';
+  totalPeriods: number;
+  presentPeriods: number;
+  absentPeriods: number;
+  attendancePercentage: number;
+}
+
+export const calculateSubjectWiseAttendance = (
+  attendanceRecords: DailyAttendance[],
+  timetable: TimetableV2,
+  subjects: SubjectV2[],
+  settings: { days: Record<DayId, { totalPeriods: number }> }
+): SubjectAttendanceStats[] => {
+  const subjectStatsMap = new Map<string, { total: number; present: number; absent: number }>();
+  
+  subjects.forEach(subject => {
+    subjectStatsMap.set(subject.id, { total: 0, present: 0, absent: 0 });
+  });
+
+  attendanceRecords.forEach(record => {
+    if (record.isHoliday) return;
+
+    const [year, month, day] = record.date.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    const dayId = getDayIdFromDate(date);
+    
+    const dayConfig = settings.days[dayId];
+    const totalPeriodsForDay = dayConfig?.totalPeriods || 0;
+    
+    if (totalPeriodsForDay === 0) return;
+
+    const slots = buildOccupiedSlotsForDay({
+      dayId,
+      timetable,
+      subjects,
+      totalPeriods: totalPeriodsForDay,
+    });
+
+    const periodToSubject = new Map<number, string>();
+    slots.forEach(slot => {
+      periodToSubject.set(slot.periodIndex, slot.subjectId);
+    });
+
+    Object.entries(record.periods).forEach(([periodId, status]) => {
+      const match = periodId.match(/P(\d+)$/);
+      if (!match) return;
+      
+      const periodIndex = parseInt(match[1], 10);
+      const subjectId = periodToSubject.get(periodIndex);
+      
+      if (!subjectId) return;
+      
+      const stats = subjectStatsMap.get(subjectId);
+      if (stats) {
+        stats.total++;
+        if (status === 'present') {
+          stats.present++;
+        } else {
+          stats.absent++;
+        }
+      }
+    });
+  });
+
+  const subjectMap = new Map(subjects.map(s => [s.id, s]));
+  const result: SubjectAttendanceStats[] = [];
+
+  subjectStatsMap.forEach((stats, subjectId) => {
+    const subject = subjectMap.get(subjectId);
+    if (subject && stats.total > 0) {
+      result.push({
+        subjectId,
+        subjectName: subject.name,
+        subjectType: subject.type,
+        totalPeriods: stats.total,
+        presentPeriods: stats.present,
+        absentPeriods: stats.absent,
+        attendancePercentage: Math.round((stats.present / stats.total) * 100),
+      });
+    }
+  });
+
+  result.sort((a, b) => a.subjectName.localeCompare(b.subjectName));
+  return result;
+};
+
+/**
  * Check if the app setup is complete (at least one day configured and at least one subject).
  * Used to gate Timetable and Attendance screens.
  */
