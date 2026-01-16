@@ -22,6 +22,7 @@ import {
   CalendarCheck,
   ChevronLeft,
   ChevronRight,
+  Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -37,6 +38,7 @@ export const CalendarScreen: React.FC = () => {
   const [isHoliday, setIsHoliday] = useState(false);
   const [holidayReason, setHolidayReason] = useState('');
   const [showHolidayForm, setShowHolidayForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Load attendance records
   useEffect(() => {
@@ -182,51 +184,78 @@ export const CalendarScreen: React.FC = () => {
   const handleSaveAttendance = () => {
     if (!selectedDate) return;
 
-    const dailyAttendance: DailyAttendance = {
-      date: formatDate(selectedDate),
-      periods: attendance,
-      isHoliday: false,
-    };
+    // Validate all periods are marked
+    const allPeriodsMarked = periods.every((p) => attendance[p.id]);
+    if (!allPeriodsMarked) {
+      toast.error('Please mark all periods before saving');
+      return;
+    }
 
-    storage.addAttendance(dailyAttendance);
-    setAttendanceRecords(storage.getAttendance());
-    setIsEditing(false);
-    toast.success('Attendance updated!');
+    setIsSaving(true);
+
+    try {
+      const dailyAttendance: DailyAttendance = {
+        date: formatDate(selectedDate),
+        periods: attendance,
+        isHoliday: false,
+      };
+
+      storage.addAttendance(dailyAttendance);
+      
+      // Update attendance records state immediately
+      const updatedRecords = storage.getAttendance();
+      setAttendanceRecords(updatedRecords);
+      
+      setIsEditing(false);
+      setIsSaving(false);
+      
+      toast.success('Attendance saved! Overall stats updated.');
+    } catch (error) {
+      setIsSaving(false);
+      toast.error('Failed to save attendance. Please try again.');
+    }
   };
 
   const handleMarkHoliday = () => {
     if (!selectedDate) return;
 
     storage.markHoliday(formatDate(selectedDate), holidayReason || 'Holiday');
-    setAttendanceRecords(storage.getAttendance());
+    const updatedRecords = storage.getAttendance();
+    setAttendanceRecords(updatedRecords);
     setIsHoliday(true);
     setShowHolidayForm(false);
-    toast.success('Day marked as holiday!');
+    toast.success('Day marked as holiday! Overall stats updated.');
   };
 
   const handleRemoveHoliday = () => {
     if (!selectedDate) return;
 
     storage.unmarkHoliday(formatDate(selectedDate));
-    setAttendanceRecords(storage.getAttendance());
+    const updatedRecords = storage.getAttendance();
+    setAttendanceRecords(updatedRecords);
     setIsHoliday(false);
     setHolidayReason('');
-    toast.success('Holiday removed!');
+    toast.success('Holiday removed! Overall stats updated.');
   };
 
   const today = new Date();
   const isToday = selectedDate && formatDate(selectedDate) === formatDate(today);
   const isFuture = selectedDate && selectedDate > today;
-  const stats = calculateAttendanceStats(attendanceRecords);
+  const isPastDate = selectedDate && !isToday && !isFuture;
+  
+  // Calculate stats using useMemo to ensure proper updates
+  const stats = useMemo(() => {
+    return calculateAttendanceStats(attendanceRecords);
+  }, [attendanceRecords]);
 
   return (
     <div className="min-h-screen bg-bg-secondary pb-20">
       <AppBar title="Calendar" />
 
       <div className="max-w-md mx-auto p-4 space-y-4">
-        {/* Stats Summary */}
+        {/* Enhanced Stats Summary */}
         <div className="bg-bg-primary p-4 rounded-[10px] border border-border">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-xs text-text-muted">Overall Attendance</p>
               <p
@@ -245,6 +274,22 @@ export const CalendarScreen: React.FC = () => {
               <p className="text-xs text-text-muted">
                 {stats.presentPeriods}/{stats.totalPeriods} periods
               </p>
+            </div>
+          </div>
+          
+          {/* Detailed Stats */}
+          <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border">
+            <div className="text-center">
+              <p className="text-lg font-semibold text-text-primary">{stats.totalPeriods}</p>
+              <p className="text-xs text-text-muted">Total Classes</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-semibold text-success">{stats.presentPeriods}</p>
+              <p className="text-xs text-text-muted">Present</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-semibold text-danger">{stats.absentPeriods}</p>
+              <p className="text-xs text-text-muted">Absent</p>
             </div>
           </div>
         </div>
@@ -518,33 +563,52 @@ export const CalendarScreen: React.FC = () => {
                       />
                     ))}
 
-                    {/* Action Buttons */}
+                    {/* Enhanced Save Button for Past Dates */}
                     {isEditing && (
-                      <div className="flex gap-3 pt-2">
-                        <Button
-                          variant="secondary"
-                          fullWidth
-                          onClick={() => {
-                            setIsEditing(false);
-                            // Reload original data
-                            const dateStr = formatDate(selectedDate);
-                            const record = attendanceRecords.find(
-                              (r) => r.date === dateStr
-                            );
-                            setAttendance(record?.periods || {});
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          variant="primary"
-                          fullWidth
-                          onClick={handleSaveAttendance}
-                          disabled={!periods.every((p) => attendance[p.id])}
-                        >
-                          <Check className="w-4 h-4 inline mr-1" />
-                          Save
-                        </Button>
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        {isPastDate && (
+                          <div className="bg-warning/10 p-2 rounded-lg mb-2">
+                            <p className="text-xs text-text-muted text-center">
+                              Editing past date attendance will update overall statistics
+                            </p>
+                          </div>
+                        )}
+                        <div className="flex gap-3">
+                          <Button
+                            variant="secondary"
+                            fullWidth
+                            onClick={() => {
+                              setIsEditing(false);
+                              // Reload original data
+                              const dateStr = formatDate(selectedDate);
+                              const record = attendanceRecords.find(
+                                (r) => r.date === dateStr
+                              );
+                              setAttendance(record?.periods || {});
+                            }}
+                            disabled={isSaving}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            variant="primary"
+                            fullWidth
+                            onClick={handleSaveAttendance}
+                            disabled={!periods.every((p) => attendance[p.id]) || isSaving}
+                          >
+                            {isSaving ? (
+                              <>
+                                <span className="animate-spin inline-block mr-1">⏳</span>
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4 inline mr-1" />
+                                Save Changes
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'sonner';
 import { LoginScreen } from './screens/LoginScreen';
@@ -15,13 +15,14 @@ import { CalendarScreen } from './screens/CalendarScreen';
 import { storage } from '@/utils/storage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const location = useLocation();
   const user = storage.getUser();
   
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!user.profileComplete && window.location.pathname !== '/profile/setup') {
+  if (!user.profileComplete && location.pathname !== '/profile/setup') {
     return <Navigate to="/profile/setup" replace />;
   }
 
