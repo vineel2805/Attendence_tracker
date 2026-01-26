@@ -57,29 +57,40 @@ export const SignupScreen: React.FC = () => {
     setError('');
     setGoogleLoading(true);
 
-    const { user, error: authError, isNewUser } = await authService.signInWithGoogle();
+    try {
+      const { user, error: authError, isNewUser } = await authService.signInWithGoogle();
 
-    if (authError) {
-      setError(authError);
+      if (authError) {
+        setError(authError);
+        setGoogleLoading(false);
+        return;
+      }
+
+      if (user) {
+        console.log('[Signup] Google user authenticated:', user.uid);
+        storage.setUser(user);
+        
+        if (!isNewUser) {
+          try {
+            await storage.syncFromCloud();
+            console.log('[Signup] Data synced from cloud');
+          } catch (syncError) {
+            console.error('[Signup] Sync failed:', syncError);
+          }
+        }
+
+        if (user.profileComplete) {
+          navigate('/dashboard');
+        } else {
+          navigate('/profile/setup');
+        }
+      }
+    } catch (error) {
+      console.error('[Signup] Google sign-in error:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
       setGoogleLoading(false);
-      return;
     }
-
-    if (user) {
-      storage.setUser(user);
-      
-      if (!isNewUser) {
-        await storage.syncFromCloud();
-      }
-
-      if (user.profileComplete) {
-        navigate('/dashboard');
-      } else {
-        navigate('/profile/setup');
-      }
-    }
-
-    setGoogleLoading(false);
   };
 
   return (

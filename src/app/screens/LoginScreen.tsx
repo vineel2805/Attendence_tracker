@@ -25,58 +25,82 @@ export const LoginScreen: React.FC = () => {
 
     setLoading(true);
 
-    const { user, error: authError } = await authService.login(email, password);
+    try {
+      const { user, error: authError } = await authService.login(email, password);
 
-    if (authError) {
-      setError(authError);
-      setLoading(false);
-      return;
-    }
-
-    if (user) {
-      storage.setUser(user);
-      await storage.syncFromCloud();
-
-      // Check email verification for email/password users
-      if (!user.emailVerified) {
-        navigate('/verify-email');
-      } else if (user.profileComplete) {
-        navigate('/dashboard');
-      } else {
-        navigate('/profile/setup');
+      if (authError) {
+        setError(authError);
+        setLoading(false);
+        return;
       }
-    }
 
-    setLoading(false);
+      if (user) {
+        console.log('[Login] User authenticated:', user.uid);
+        storage.setUser(user);
+        
+        try {
+          await storage.syncFromCloud();
+          console.log('[Login] Data synced from cloud');
+        } catch (syncError) {
+          console.error('[Login] Sync failed:', syncError);
+          // Continue anyway - user can still use the app with empty data
+        }
+
+        // Check email verification for email/password users
+        if (!user.emailVerified) {
+          navigate('/verify-email');
+        } else if (user.profileComplete) {
+          navigate('/dashboard');
+        } else {
+          navigate('/profile/setup');
+        }
+      }
+    } catch (error) {
+      console.error('[Login] Unexpected error:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
     setError('');
     setGoogleLoading(true);
 
-    const { user, error: authError, isNewUser } = await authService.signInWithGoogle();
+    try {
+      const { user, error: authError, isNewUser } = await authService.signInWithGoogle();
 
-    if (authError) {
-      setError(authError);
+      if (authError) {
+        setError(authError);
+        setGoogleLoading(false);
+        return;
+      }
+
+      if (user) {
+        console.log('[Login] Google user authenticated:', user.uid);
+        storage.setUser(user);
+        
+        if (!isNewUser) {
+          try {
+            await storage.syncFromCloud();
+            console.log('[Login] Data synced from cloud');
+          } catch (syncError) {
+            console.error('[Login] Sync failed:', syncError);
+          }
+        }
+
+        if (user.profileComplete) {
+          navigate('/dashboard');
+        } else {
+          navigate('/profile/setup');
+        }
+      }
+    } catch (error) {
+      console.error('[Login] Google sign-in error:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
       setGoogleLoading(false);
-      return;
     }
-
-    if (user) {
-      storage.setUser(user);
-      
-      if (!isNewUser) {
-        await storage.syncFromCloud();
-      }
-
-      if (user.profileComplete) {
-        navigate('/dashboard');
-      } else {
-        navigate('/profile/setup');
-      }
-    }
-
-    setGoogleLoading(false);
   };
 
   return (

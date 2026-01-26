@@ -9,6 +9,7 @@ import {
   DayConfig,
 } from '@/types';
 import { firestoreService } from './firestoreService';
+import { auth } from './firebase';
 
 const STORAGE_KEYS = {
   USER: 'attendance_user',
@@ -29,8 +30,13 @@ const DEFAULT_DAY_CONFIGS: Record<DayId, DayConfig> = {
   Sun: { day: 'Sun', totalPeriods: 0 },
 };
 
-// Helper to get current user UID
+// Helper to get current user UID from Firebase Auth (source of truth)
 const getUid = (): string | null => {
+  // Primary: Get from Firebase Auth (most reliable)
+  if (auth.currentUser?.uid) {
+    return auth.currentUser.uid;
+  }
+  // Fallback: Get from localStorage (for initial sync before auth ready)
   const user = storage.getUser();
   return user?.uid || null;
 };
@@ -110,7 +116,11 @@ export const storage = {
     // Sync to Firestore
     const uid = getUid();
     if (uid) {
-      firestoreService.saveSettings(uid, settings).catch(console.error);
+      firestoreService.saveSettings(uid, settings)
+        .then(() => console.log('[Storage] Settings synced to cloud'))
+        .catch((err) => console.error('[Storage] Failed to sync settings:', err));
+    } else {
+      console.warn('[Storage] No UID available, settings not synced to cloud');
     }
   },
 
@@ -131,7 +141,11 @@ export const storage = {
     // Sync to Firestore
     const uid = getUid();
     if (uid) {
-      firestoreService.saveSubjects(uid, subjects).catch(console.error);
+      firestoreService.saveSubjects(uid, subjects)
+        .then(() => console.log('[Storage] Subjects synced to cloud'))
+        .catch((err) => console.error('[Storage] Failed to sync subjects:', err));
+    } else {
+      console.warn('[Storage] No UID available, subjects not synced to cloud');
     }
   },
 
@@ -152,7 +166,11 @@ export const storage = {
     // Sync to Firestore
     const uid = getUid();
     if (uid) {
-      firestoreService.saveTimetable(uid, timetable).catch(console.error);
+      firestoreService.saveTimetable(uid, timetable)
+        .then(() => console.log('[Storage] Timetable synced to cloud'))
+        .catch((err) => console.error('[Storage] Failed to sync timetable:', err));
+    } else {
+      console.warn('[Storage] No UID available, timetable not synced to cloud');
     }
   },
 
@@ -167,7 +185,11 @@ export const storage = {
     // Sync to Firestore
     const uid = getUid();
     if (uid) {
-      firestoreService.saveAttendance(uid, attendance).catch(console.error);
+      firestoreService.saveAttendance(uid, attendance)
+        .then(() => console.log('[Storage] Attendance synced to cloud'))
+        .catch((err) => console.error('[Storage] Failed to sync attendance:', err));
+    } else {
+      console.warn('[Storage] No UID available, attendance not synced to cloud');
     }
   },
 
@@ -224,6 +246,7 @@ export const storage = {
   },
 
   clearAll(): void {
+    console.log('[Storage] Clearing all local data');
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.TIMETABLE);
     localStorage.removeItem(STORAGE_KEYS.ATTENDANCE);
@@ -235,9 +258,15 @@ export const storage = {
   // Sync from Firestore to localStorage (call after login)
   async syncFromCloud(): Promise<void> {
     const uid = getUid();
-    if (!uid) return;
+    console.log('[Storage] syncFromCloud called, uid:', uid);
+    
+    if (!uid) {
+      console.warn('[Storage] No UID available, cannot sync from cloud');
+      return;
+    }
 
     try {
+      console.log('[Storage] Fetching data from Firestore...');
       const [settings, subjects, timetable, attendance] = await Promise.all([
         firestoreService.getSettings(uid),
         firestoreService.getSubjects(uid),
@@ -245,19 +274,34 @@ export const storage = {
         firestoreService.getAttendance(uid),
       ]);
 
+      console.log('[Storage] Data fetched:', {
+        hasSettings: !!settings,
+        subjectsCount: subjects.length,
+        timetableDays: Object.keys(timetable).length,
+        attendanceRecords: attendance.length,
+      });
+
       localStorage.setItem(STORAGE_KEYS.SETTINGS_V2, JSON.stringify(settings));
       localStorage.setItem(STORAGE_KEYS.SUBJECTS_V2, JSON.stringify(subjects));
       localStorage.setItem(STORAGE_KEYS.TIMETABLE_V2, JSON.stringify(timetable));
       localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
+      
+      console.log('[Storage] Sync from cloud complete');
     } catch (e) {
-      console.error('Failed to sync from cloud:', e);
+      console.error('[Storage] Failed to sync from cloud:', e);
+      throw e; // Re-throw so caller can handle
     }
   },
 
   // Push local data to Firestore (useful for migration)
   async syncToCloud(): Promise<void> {
     const uid = getUid();
-    if (!uid) return;
+    console.log('[Storage] syncToCloud called, uid:', uid);
+    
+    if (!uid) {
+      console.warn('[Storage] No UID available, cannot sync to cloud');
+      return;
+    }
 
     try {
       const settings = this.getSettingsV2();
@@ -265,12 +309,15 @@ export const storage = {
       const timetable = this.getTimetableV2();
       const attendance = this.getAttendance();
 
+      console.log('[Storage] Pushing data to Firestore...');
       await Promise.all([
         firestoreService.saveSettings(uid, settings),
         firestoreService.saveSubjects(uid, subjects),
         firestoreService.saveTimetable(uid, timetable),
         firestoreService.saveAttendance(uid, attendance),
       ]);
+      
+      console.log('[Storage] Sync to cloud complete');
     } catch (e) {
       console.error('Failed to sync to cloud:', e);
     }

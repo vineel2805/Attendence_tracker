@@ -6,6 +6,8 @@ import { Input } from '@/app/components/Input';
 import { Button } from '@/app/components/Button';
 import { LogOut, Mail, User as UserIcon, Hash, Settings as SettingsIcon, ChevronRight, X } from 'lucide-react';
 import { storage } from '@/utils/storage';
+import { authService } from '@/utils/authService';
+import { firestoreService } from '@/utils/firestoreService';
 import { toast } from 'sonner';
 
 export const ProfileScreen: React.FC = () => {
@@ -16,20 +18,41 @@ export const ProfileScreen: React.FC = () => {
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [rollNumber, setRollNumber] = useState(user?.rollNumber || '');
 
-  const handleSave = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
     if (user) {
-      const updatedUser = {
-        ...user,
-        fullName,
-        rollNumber,
-      };
-      storage.setUser(updatedUser);
-      setIsEditing(false);
-      toast.success('Profile updated successfully!');
+      setIsSaving(true);
+      try {
+        // Update Firestore first
+        await firestoreService.updateUserDocument(user.uid, {
+          fullName,
+          rollNumber,
+        });
+        // Then update localStorage
+        const updatedUser = {
+          ...user,
+          fullName,
+          rollNumber,
+        };
+        storage.setUser(updatedUser);
+        setIsEditing(false);
+        toast.success('Profile updated successfully!');
+      } catch (error) {
+        console.error('Failed to update profile:', error);
+        toast.error('Failed to update profile. Please try again.');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
     storage.clearAll();
     navigate('/login');
   };

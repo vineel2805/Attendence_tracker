@@ -1,12 +1,29 @@
 // Firebase configuration and initialization
-// Replace the config values with your Firebase project credentials
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 
-// Your Firebase configuration
-// Get these values from Firebase Console: Project Settings > General > Your Apps > Firebase SDK snippet
+// Validate required environment variables
+const requiredEnvVars = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_APP_ID',
+] as const;
+
+const missingVars = requiredEnvVars.filter(
+  (key) => !import.meta.env[key]
+);
+
+if (missingVars.length > 0 && import.meta.env.DEV) {
+  console.warn(
+    `[Firebase] Missing environment variables: ${missingVars.join(', ')}. ` +
+    'Check your .env file. Using fallback values for development.'
+  );
+}
+
+// Firebase configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'YOUR_API_KEY',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'YOUR_PROJECT_ID.firebaseapp.com',
@@ -16,12 +33,31 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || 'YOUR_APP_ID',
 };
 
+// Log config in development (without sensitive data)
+if (import.meta.env.DEV) {
+  console.log('[Firebase] Initializing with project:', firebaseConfig.projectId);
+}
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
 // Initialize services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Enable offline persistence for Firestore
+// This allows the app to work offline and sync when back online
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    // Multiple tabs open, persistence can only be enabled in one tab at a time
+    console.warn('[Firestore] Offline persistence unavailable: multiple tabs open');
+  } else if (err.code === 'unimplemented') {
+    // The current browser doesn't support persistence
+    console.warn('[Firestore] Offline persistence unavailable: browser not supported');
+  } else {
+    console.error('[Firestore] Offline persistence error:', err);
+  }
+});
 
 // Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
