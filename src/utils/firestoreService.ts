@@ -82,6 +82,7 @@ export const firestoreService = {
       return {
         periodDurationMinutes: data.periodDurationMinutes ?? 45,
         days: { ...DEFAULT_DAY_CONFIGS, ...(data.days || {}) },
+        attendanceBaseline: data.attendanceBaseline,
       };
     }
 
@@ -288,6 +289,7 @@ export const firestoreService = {
         callback({
           periodDurationMinutes: data.periodDurationMinutes ?? 45,
           days: { ...DEFAULT_DAY_CONFIGS, ...(data.days || {}) },
+          attendanceBaseline: data.attendanceBaseline,
         });
       } else {
         callback({

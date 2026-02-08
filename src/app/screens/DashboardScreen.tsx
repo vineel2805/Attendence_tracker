@@ -3,10 +3,10 @@ import { AppBar } from '@/app/components/AppBar';
 import { BottomNav } from '@/app/components/BottomNav';
 import { StatCard } from '@/app/components/StatCard';
 import { EmptyState } from '@/app/components/EmptyState';
-import { Calendar, BookOpen, FlaskConical } from 'lucide-react';
+import { Calendar, BookOpen, FlaskConical, Info } from 'lucide-react';
 import { storage } from '@/utils/storage';
 import { calculateAttendanceStats, calculateSubjectWiseAttendance, SubjectAttendanceStats } from '@/utils/attendance';
-import { AttendanceStats } from '@/types';
+import { AttendanceStats, AttendanceBaseline } from '@/types';
 
 export const DashboardScreen: React.FC = () => {
   const [stats, setStats] = useState<AttendanceStats>({
@@ -16,24 +16,35 @@ export const DashboardScreen: React.FC = () => {
     attendancePercentage: 0,
   });
   const [subjectStats, setSubjectStats] = useState<SubjectAttendanceStats[]>([]);
+  const [hasBaseline, setHasBaseline] = useState(false);
 
   useEffect(() => {
     const attendanceRecords = storage.getAttendance();
-    const calculatedStats = calculateAttendanceStats(attendanceRecords);
-    setStats(calculatedStats);
-
-    // Calculate subject-wise stats
-    const timetable = storage.getTimetableV2();
-    const subjects = storage.getSubjectsV2();
     const settings = storage.getSettingsV2();
     
-    const subjectWiseStats = calculateSubjectWiseAttendance(
-      attendanceRecords,
-      timetable,
-      subjects,
-      settings
-    );
-    setSubjectStats(subjectWiseStats);
+    // Check if baseline is active
+    const baseline = settings.attendanceBaseline;
+    setHasBaseline(!!baseline);
+    
+    // Calculate stats with baseline if present
+    const calculatedStats = calculateAttendanceStats(attendanceRecords, baseline);
+    setStats(calculatedStats);
+
+    // Only calculate subject-wise stats if no baseline is active
+    if (!baseline) {
+      const timetable = storage.getTimetableV2();
+      const subjects = storage.getSubjectsV2();
+      
+      const subjectWiseStats = calculateSubjectWiseAttendance(
+        attendanceRecords,
+        timetable,
+        subjects,
+        settings
+      );
+      setSubjectStats(subjectWiseStats);
+    } else {
+      setSubjectStats([]);
+    }
   }, []);
 
   const getAttendanceColor = (percentage: number) => {
@@ -103,8 +114,26 @@ export const DashboardScreen: React.FC = () => {
               </div>
             </div>
 
+            {/* Baseline Active Notice */}
+            {hasBaseline && (
+              <div className="bg-accent/10 border border-accent/30 rounded-[10px] p-4">
+                <div className="flex gap-3">
+                  <Info className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-accent mb-1">
+                      Manual Baseline Active
+                    </p>
+                    <p className="text-xs text-text-secondary">
+                      Subject-wise attendance is not available when using manual baseline. 
+                      Go to Settings → Edit to modify or clear the baseline.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Subject-wise Attendance */}
-            {subjectStats.length > 0 && (
+            {!hasBaseline && subjectStats.length > 0 && (
               <div>
                 <h3 className="text-sm font-medium text-text-secondary mb-3">
                   Subject-wise Attendance

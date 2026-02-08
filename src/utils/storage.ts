@@ -102,6 +102,7 @@ export const storage = {
           ...DEFAULT_DAY_CONFIGS,
           ...(parsed.days || {}),
         },
+        attendanceBaseline: parsed.attendanceBaseline,
       };
     } catch {
       return {

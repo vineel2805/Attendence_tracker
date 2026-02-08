@@ -44,7 +44,9 @@ export const PredictScreen: React.FC = () => {
   // Load current stats
   useEffect(() => {
     const attendanceRecords = storage.getAttendance();
-    const stats = calculateAttendanceStats(attendanceRecords);
+    const settings = storage.getSettingsV2();
+    // Include baseline in calculation if present
+    const stats = calculateAttendanceStats(attendanceRecords, settings.attendanceBaseline);
     setCurrentStats(stats);
   }, []);
 

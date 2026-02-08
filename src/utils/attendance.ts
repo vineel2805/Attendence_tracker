@@ -1,20 +1,29 @@
-import { DailyAttendance, AttendanceStats, DayId, TimetableV2, SubjectV2, Period, ClassEntry } from '@/types';
+import { DailyAttendance, AttendanceStats, DayId, TimetableV2, SubjectV2, Period, ClassEntry, AttendanceBaseline } from '@/types';
 
 /**
- * Calculate attendance statistics from attendance records only.
- * Stats are period-accurate: each period slot in records is counted individually.
+ * Calculate attendance statistics from attendance records.
+ * If a baseline is provided, starts with baseline values and only counts
+ * records AFTER the baseline date.
  * 
  * @param attendanceRecords - Array of daily attendance records
+ * @param baseline - Optional manual baseline for past attendance
  * @returns AttendanceStats with total, present, absent counts and percentage
  */
 export const calculateAttendanceStats = (
-  attendanceRecords: DailyAttendance[]
+  attendanceRecords: DailyAttendance[],
+  baseline?: AttendanceBaseline
 ): AttendanceStats => {
-  let totalPeriods = 0;
-  let presentPeriods = 0;
-  let absentPeriods = 0;
+  // Start with baseline values (or zero)
+  let totalPeriods = baseline?.totalClasses ?? 0;
+  let presentPeriods = baseline?.attendedClasses ?? 0;
+  let absentPeriods = totalPeriods - presentPeriods;
 
-  attendanceRecords.forEach(record => {
+  // Filter records: only count records AFTER the baseline date
+  const filteredRecords = baseline?.upToDate
+    ? attendanceRecords.filter(r => r.date > baseline.upToDate)
+    : attendanceRecords;
+
+  filteredRecords.forEach(record => {
     // Skip holidays - they don't count toward attendance
     if (record.isHoliday) return;
     

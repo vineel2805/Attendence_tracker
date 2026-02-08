@@ -245,7 +245,8 @@ export const CalendarScreen: React.FC = () => {
   
   // Calculate stats using useMemo to ensure proper updates
   const stats = useMemo(() => {
-    return calculateAttendanceStats(attendanceRecords);
+    const settings = storage.getSettingsV2();
+    return calculateAttendanceStats(attendanceRecords, settings.attendanceBaseline);
   }, [attendanceRecords]);
 
   return (

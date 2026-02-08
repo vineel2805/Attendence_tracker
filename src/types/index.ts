@@ -17,6 +17,7 @@ export interface DayConfig {
 export interface AppSettingsV2 {
   periodDurationMinutes: number;
   days: Record<DayId, DayConfig>;
+  attendanceBaseline?: AttendanceBaseline; // Optional manual baseline
 }
 
 export type SubjectType = 'theory' | 'lab';
@@ -67,6 +68,17 @@ export interface DailyAttendance {
   };
   isHoliday?: boolean; // If true, this day is marked as a holiday
   holidayReason?: string; // Optional reason for holiday
+}
+
+/**
+ * Manual attendance baseline for users who want to set their attendance
+ * without marking each period individually for past dates.
+ * WARNING: When active, subject-wise attendance will NOT be accurate.
+ */
+export interface AttendanceBaseline {
+  totalClasses: number;        // Total classes up to the cutoff date
+  attendedClasses: number;     // Classes attended up to the cutoff date
+  upToDate: string;            // YYYY-MM-DD format - records on/before this date are ignored
 }
 
 export interface AttendanceStats {

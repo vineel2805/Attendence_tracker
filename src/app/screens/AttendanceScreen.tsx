@@ -88,7 +88,7 @@ export const AttendanceScreen: React.FC = () => {
 
     // Calculate current attendance percentage
     // Stats are period-accurate because records store per-conducted-period status.
-    const stats = calculateAttendanceStats(attendanceRecords);
+    const stats = calculateAttendanceStats(attendanceRecords, settings.attendanceBaseline);
     setCurrentAttendance(stats.attendancePercentage);
   }, [date]);
 
@@ -110,7 +110,8 @@ export const AttendanceScreen: React.FC = () => {
     
     // Recalculate stats
     const attendanceRecords = storage.getAttendance();
-    const stats = calculateAttendanceStats(attendanceRecords);
+    const settings = storage.getSettingsV2();
+    const stats = calculateAttendanceStats(attendanceRecords, settings.attendanceBaseline);
     setCurrentAttendance(stats.attendancePercentage);
     
     toast.success('Attendance saved successfully!');
@@ -123,7 +124,8 @@ export const AttendanceScreen: React.FC = () => {
     
     // Recalculate stats
     const attendanceRecords = storage.getAttendance();
-    const stats = calculateAttendanceStats(attendanceRecords);
+    const settings = storage.getSettingsV2();
+    const stats = calculateAttendanceStats(attendanceRecords, settings.attendanceBaseline);
     setCurrentAttendance(stats.attendancePercentage);
     
     toast.success('Today marked as holiday!');
@@ -136,7 +138,8 @@ export const AttendanceScreen: React.FC = () => {
     
     // Recalculate stats
     const attendanceRecords = storage.getAttendance();
-    const stats = calculateAttendanceStats(attendanceRecords);
+    const settings = storage.getSettingsV2();
+    const stats = calculateAttendanceStats(attendanceRecords, settings.attendanceBaseline);
     setCurrentAttendance(stats.attendancePercentage);
     
     toast.success('Holiday removed!');
