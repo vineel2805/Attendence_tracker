@@ -4,12 +4,14 @@ import { BottomNav } from '@/app/components/BottomNav';
 import { Input } from '@/app/components/Input';
 import { Button } from '@/app/components/Button';
 import { EmptyState } from '@/app/components/EmptyState';
-import { Calendar, Plus, Trash2 } from 'lucide-react';
+import { Calendar, Plus, Trash2, ImageIcon } from 'lucide-react';
 import { storage } from '@/utils/storage';
 import { Day, DayId, ClassEntry, SubjectV2, AppSettingsV2, TimetableV2 } from '@/types';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { isSetupComplete } from '@/utils/attendance';
+import { TimetableScannerOCR, ScannedTimetableResult } from '@/app/components/TimetableScannerOCR';
+import { saveScannedTimetable, hasExistingTimetable } from '@/utils/timetableFirestoreService';
 
 const DAYS: Day[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DAY_TO_ID: Record<Day, DayId> = {
@@ -43,6 +45,11 @@ export const TimetableScreen: React.FC = () => {
 
   const [entryErrors, setEntryErrors] = useState<Record<string, string>>({});
   const [dayError, setDayError] = useState('');
+
+  // OCR Scanner state (Tesseract.js - local, no API required)
+  const [showOCRScanner, setShowOCRScanner] = useState(false);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [pendingOCRData, setPendingOCRData] = useState<ScannedTimetableResult | null>(null);
 
   useEffect(() => {
     const saved = storage.getTimetableV2();
@@ -232,6 +239,88 @@ export const TimetableScreen: React.FC = () => {
     setDayError('');
   };
 
+  // OCR Scanner handlers (Tesseract.js - local processing)
+  const handleOCRScanComplete = async (data: ScannedTimetableResult) => {
+    setShowOCRScanner(false);
+
+    // Check for existing timetable
+    const uid = localStorage.getItem('uid');
+    if (uid) {
+      const hasExisting = await hasExistingTimetable(uid);
+      if (hasExisting) {
+        // Show confirmation dialog
+        setPendingOCRData(data);
+        setShowOverwriteConfirm(true);
+        return;
+      }
+    }
+
+    // No existing timetable, save directly
+    await applyOCRScannedData(data);
+  };
+
+  // Apply OCR scanned data (shared between direct save and overwrite confirm)
+  const applyOCRScannedData = async (data: ScannedTimetableResult) => {
+    // Update settings with new period counts
+    const newSettings: AppSettingsV2 = {
+      ...settings,
+      days: {
+        Mon: { day: 'Mon', totalPeriods: data.days.Mon.totalPeriods },
+        Tue: { day: 'Tue', totalPeriods: data.days.Tue.totalPeriods },
+        Wed: { day: 'Wed', totalPeriods: data.days.Wed.totalPeriods },
+        Thu: { day: 'Thu', totalPeriods: data.days.Thu.totalPeriods },
+        Fri: { day: 'Fri', totalPeriods: data.days.Fri.totalPeriods },
+        Sat: { day: 'Sat', totalPeriods: data.days.Sat.totalPeriods },
+        Sun: { day: 'Sun', totalPeriods: data.days.Sun.totalPeriods },
+      },
+    };
+    storage.setSettingsV2(newSettings);
+    setSettings(newSettings);
+
+    // Update subjects
+    storage.setSubjectsV2(data.subjects);
+    setSubjects(data.subjects);
+
+    // Update timetable
+    const newTimetable: TimetableV2 = data.timetable;
+    storage.setTimetableV2(newTimetable);
+    setTimetable(newTimetable);
+
+    // Update current view
+    const dayId = DAY_TO_ID[selectedDay];
+    setEditingEntries(newTimetable[dayId] || []);
+
+    // Save to Firestore
+    const uid = localStorage.getItem('uid');
+    if (uid) {
+      const result = await saveScannedTimetable(uid, data);
+      if (result.success) {
+        toast.success(`Saved ${result.savedSubjectsCount} subjects and ${result.savedPeriodsCount} class entries!`);
+      } else {
+        toast.error(result.error || 'Failed to save to cloud');
+      }
+    } else {
+      toast.success('Timetable imported successfully!');
+    }
+
+    setIsEditing(false);
+    setEntryErrors({});
+    setDayError('');
+  };
+
+  // Handle overwrite confirmation
+  const handleConfirmOverwrite = async () => {
+    if (pendingOCRData) {
+      await applyOCRScannedData(pendingOCRData);
+    }
+    setShowOverwriteConfirm(false);
+    setPendingOCRData(null);
+  };
+
+  const handleCancelOverwrite = () => {
+    setShowOverwriteConfirm(false);
+    setPendingOCRData(null);
+  };
   const currentEntries = isEditing ? editingEntries : (timetable[selectedDayId] || []);
   const currentOccupiedCount = useMemo(() => computeOccupiedSlots(currentEntries).size, [currentEntries]);
   const setupComplete = isSetupComplete(settings, subjects);
@@ -241,6 +330,15 @@ export const TimetableScreen: React.FC = () => {
       <AppBar title="Timetable" />
       
       <div className="max-w-md mx-auto p-4 space-y-6">
+        {/* Scan Timetable Button */}
+        <button
+          onClick={() => setShowOCRScanner(true)}
+          className="w-full flex items-center justify-center gap-2 p-3 bg-accent/10 border border-accent/30 rounded-xl hover:bg-accent/20 transition-colors"
+        >
+          <ImageIcon className="w-5 h-5 text-accent" />
+          <span className="font-medium text-accent">Scan Timetable from Photo</span>
+        </button>
+
         {/* Day Selector */}
         <div>
           <h3 className="text-sm font-medium text-text-secondary mb-3">
@@ -477,6 +575,45 @@ export const TimetableScreen: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* OCR Scanner Modal (Tesseract.js - local processing) */}
+      {showOCRScanner && (
+        <TimetableScannerOCR
+          onScanComplete={handleOCRScanComplete}
+          onClose={() => setShowOCRScanner(false)}
+          existingSubjects={subjects}
+        />
+      )}
+
+      {/* Overwrite Confirmation Dialog */}
+      {showOverwriteConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-bg-primary rounded-xl max-w-sm w-full p-4">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">
+              Replace Existing Timetable?
+            </h3>
+            <p className="text-sm text-text-secondary mb-4">
+              You already have a timetable configured. This will replace all existing data with the scanned timetable.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={handleCancelOverwrite}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleConfirmOverwrite}
+                className="flex-1"
+              >
+                Replace
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

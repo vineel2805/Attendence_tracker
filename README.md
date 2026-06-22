@@ -6,40 +6,41 @@ A modern, mobile-first attendance tracking application for students built with R
 
 ## Features
 
-### 📊 Dashboard
+###  Dashboard
 - Real-time attendance percentage overview
 - Visual stats with present/absent period counts
 - Quick access to all features
 
-### ✅ Mark Attendance
+###  Mark Attendance
 - Mark daily attendance by period
 - Support for multiple subjects (Theory & Lab)
 - Holiday marking with custom reasons
 
-### 📅 Calendar
+###  Calendar
 - Monthly calendar view with color-coded attendance
 - View attendance history by date
 - Edit past attendance records
 - Mark days as holidays (festivals, public holidays, etc.)
 
-### 📈 Predict Attendance
+###  Predict Attendance
 - Plan future attendance with calendar-based UI
 - See real-time impact on attendance percentage
 - Side-by-side current vs predicted stats
 - Quick actions: All Present, All Absent, Clear
 
-### 📋 Timetable
+###  Timetable
 - Configure weekly timetable
 - Assign subjects to specific periods
 - Day-wise period management
 
-### ⚙️ Settings
+###  Settings
 - Configure period duration
 - Set periods per day (per weekday)
 - Manage subjects (Theory/Lab types)
 - Inline stepper controls for easy editing
+- **Attendance Baseline**: Enter past attendance data (total & attended classes) up to a specific date for accurate overall percentage
 
-### 👤 Profile
+###  Profile
 - Compact profile view
 - Edit profile via bottom sheet
 - Quick access to settings

@@ -57,9 +57,9 @@ export interface Timetable {
   [day: string]: Period[];
 }
 
-export interface TimetableV2 {
-  [day in DayId]?: ClassEntry[];
-}
+export type TimetableV2 = {
+  [K in DayId]?: ClassEntry[];
+};
 
 export interface DailyAttendance {
   date: string; // YYYY-MM-DD format

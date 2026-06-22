@@ -2,16 +2,16 @@
 node_modules/
 .pnp
 .pnp.js
+.nuxt/
+
+# Cache
+.cache/
 
 # Build outputs
 dist/
 build/
 out/
 .next/
-.nuxt/
-
-# Cache
-.cache/
 .parcel-cache/
 .vite/
 
