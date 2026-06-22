@@ -1,9 +1,10 @@
 /**
- * TimetableScannerOCR - Main component for uploading and processing timetable images
- * Uses local Tesseract.js for OCR (no paid APIs required)
+ * TimetableScannerOCR - AI-based timetable image scanner
+ * Uploads an image, sends it to the Vision proxy, receives structured timetable data,
+ * and opens the existing editable preview.
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   Upload,
   X,
@@ -12,22 +13,17 @@ import {
   RotateCcw,
   ImageIcon,
   AlertCircle,
-  CheckCircle2,
 } from 'lucide-react';
 import { Button } from './Button';
 import { toast } from 'sonner';
 import { DayId, SubjectV2, ClassEntry } from '@/types';
 import {
   validateFile,
-  performOCR,
-  terminateOCR,
-  isOCRProcessing,
-  OCRResult,
-} from '@/utils/ocrService';
-import {
-  parseTimetableText,
-  ParsedTimetable,
-} from '@/utils/timetableParser';
+  performAIOCR,
+  GeminiRawResponse,
+  extractGeminiRetrySeconds,
+} from '@/utils/aiOcrService';
+import { convertGeminiResponseToFinalTimetableData } from '@/utils/geminiAdapter';
 import {
   TimetableEditablePreview,
   EditableTimetableData,
@@ -49,65 +45,113 @@ interface TimetableScannerOCRProps {
   existingSubjects: SubjectV2[];
 }
 
-// Processing stage types
-type ProcessingStage = 'idle' | 'uploading' | 'preprocessing' | 'ocr' | 'parsing' | 'preview' | 'error';
+type ProcessingStage = 'idle' | 'uploading' | 'processing' | 'preview' | 'error';
+
+const emptyEditableTimetable = (): Record<DayId, string[]> => ({
+  Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [],
+});
+
+const DEBUG_GEMINI = import.meta.env.VITE_GEMINI_DEBUG !== 'false';
+
+const loadImageMeta = (dataUrl: string): Promise<{ width: number; height: number }> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.width, height: img.height });
+    img.onerror = () => reject(new Error('Failed to load image metadata'));
+    img.src = dataUrl;
+  });
+};
+
+const computeExtractionReport = (finalData: FinalTimetableData) => {
+  const dayCount = Object.values(finalData.days).filter((day) => day.totalPeriods > 0).length;
+  const subjectCount = finalData.subjects.length;
+  const periodCount = Object.values(finalData.timetable).reduce((sum, entries) => {
+    return sum + entries.reduce((periodSum, entry) => periodSum + entry.duration, 0);
+  }, 0);
+
+  const dayAccuracy = Math.round((dayCount / 7) * 100);
+  const subjectAccuracy = Math.min(100, 50 + subjectCount * 5);
+  const periodAccuracy = Math.min(100, periodCount > 0 ? 60 + Math.min(periodCount, 20) * 2 : 0);
+
+  return {
+    dayAccuracy,
+    subjectAccuracy,
+    periodAccuracy,
+    dayCount,
+    subjectCount,
+    periodCount,
+  };
+};
+
+const convertFinalToEditable = (finalData: FinalTimetableData): EditableTimetableData => {
+  const editable: EditableTimetableData = {
+    days: finalData.days,
+    timetable: emptyEditableTimetable(),
+    subjects: finalData.subjects.map((subject) => subject.name),
+  };
+
+  (Object.keys(finalData.days) as DayId[]).forEach((day) => {
+    const totalPeriods = finalData.days[day]?.totalPeriods ?? 0;
+    const slots = Array.from({ length: totalPeriods }, () => '');
+
+    (finalData.timetable[day] || []).forEach((entry) => {
+      const subject = finalData.subjects.find((item) => item.id === entry.subjectId);
+      const subjectName = subject?.name || 'Unknown';
+
+      for (let offset = 0; offset < entry.duration; offset += 1) {
+        const index = entry.startPeriod - 1 + offset;
+        if (index >= 0 && index < slots.length) {
+          slots[index] = subjectName;
+        }
+      }
+    });
+
+    editable.timetable[day] = slots;
+  });
+
+  return editable;
+};
 
 export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
   onScanComplete,
   onClose,
   existingSubjects,
 }) => {
-  // Component state
   const [stage, setStage] = useState<ProcessingStage>('idle');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
   const [parsedData, setParsedData] = useState<EditableTimetableData | null>(null);
   const [parseConfidence, setParseConfidence] = useState(0);
 
-  // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cleanup OCR worker on unmount
-  useEffect(() => {
-    return () => {
-      terminateOCR();
-    };
-  }, []);
-
-  /**
-   * Handle file selection from input
-   */
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type and size
     const error = validateFile(file);
     if (error) {
       toast.error(error.message);
       return;
     }
 
-    // Create preview
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = (e: ProgressEvent<FileReader>) => {
       setImagePreview(e.target?.result as string);
       setSelectedFile(file);
       setStage('idle');
       setErrorMessage(null);
-      setOcrResult(null);
       setParsedData(null);
+      setProgress(0);
+      setStatusText('');
     };
     reader.readAsDataURL(file);
   }, []);
 
-  /**
-   * Handle drag and drop file upload
-   */
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
@@ -120,7 +164,7 @@ export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = (e: ProgressEvent<FileReader>) => {
       setImagePreview(e.target?.result as string);
       setSelectedFile(file);
       setStage('idle');
@@ -129,92 +173,77 @@ export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
     reader.readAsDataURL(file);
   }, []);
 
-  /**
-   * Handle drag over event
-   */
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
   };
 
-  /**
-   * Progress callback for OCR processing
-   */
-  const handleProgress = useCallback((progressValue: number, status: string) => {
-    setProgress(progressValue);
-    setStatusText(status);
-  }, []);
-
-  /**
-   * Main image processing function
-   */
   const processImage = useCallback(async () => {
-    if (!imagePreview || isOCRProcessing()) return;
+    if (!imagePreview) return;
 
-    setStage('preprocessing');
+    setStage('processing');
     setProgress(0);
+    setStatusText('Sending image to Gemini Vision...');
     setErrorMessage(null);
+    setRetryAfterSeconds(null);
 
     try {
-      // Run OCR
-      setStage('ocr');
-      const result = await performOCR(imagePreview, handleProgress);
-      setOcrResult(result);
-
-      console.log('[Scanner] OCR Result:', {
-        confidence: result.confidence.toFixed(1) + '%',
-        lines: result.lines.length,
-        time: result.processingTimeMs + 'ms',
-      });
-
-      // Warn about low confidence
-      if (result.confidence < 60) {
-        toast.warning(`Low OCR confidence (${result.confidence.toFixed(0)}%). Results may need correction.`);
+      if (DEBUG_GEMINI) {
+        const imageMeta = await loadImageMeta(imagePreview);
+        console.log('[Gemini Debug] image upload', {
+          fileName: selectedFile?.name,
+          fileType: selectedFile?.type,
+          fileSizeBytes: selectedFile?.size,
+          dataUrlLength: imagePreview.length,
+          imageWidth: imageMeta.width,
+          imageHeight: imageMeta.height,
+        });
       }
 
-      // Parse timetable structure from OCR text
-      setStage('parsing');
-      setStatusText('Parsing timetable structure...');
+      const geminiResp: GeminiRawResponse = await performAIOCR(imagePreview, { timeoutMs: 120000 });
 
-      const parsed = parseTimetableText(result.lines);
-
-      if ('code' in parsed) {
-        // Parser returned an error
-        throw new Error(parsed.message);
+      if (DEBUG_GEMINI) {
+        console.log('[Gemini Debug] raw Gemini response', geminiResp);
       }
 
-      // Convert to editable format
-      const editableData: EditableTimetableData = {
-        days: parsed.days,
-        timetable: parsed.timetable,
-        subjects: parsed.subjects,
-      };
+      const finalData = convertGeminiResponseToFinalTimetableData(geminiResp);
+      const editableData = convertFinalToEditable(finalData);
 
+      if (DEBUG_GEMINI) {
+        console.log('[Gemini Debug] generated FinalTimetableData', finalData);
+        console.log('[Gemini Debug] generated EditableTimetableData', editableData);
+        console.log('[Gemini Debug] extraction report', {
+          ...computeExtractionReport(finalData),
+          parseConfidence: geminiResp.parseConfidence ?? 0,
+          confidenceVisualization:
+            (geminiResp.parseConfidence ?? 0) >= 90
+              ? 'normal'
+              : (geminiResp.parseConfidence ?? 0) >= 70
+                ? 'warning'
+                : 'highlight',
+        });
+      }
+
+      setParseConfidence(geminiResp.parseConfidence ?? 100);
       setParsedData(editableData);
-      setParseConfidence(parsed.parseConfidence);
       setStage('preview');
 
-      const totalPeriods = Object.values(parsed.days).reduce((sum, d) => sum + d.totalPeriods, 0);
-      toast.success(`Found ${parsed.subjects.length} subjects across ${totalPeriods} periods!`);
-
+      const totalPeriods = Object.values(finalData.days).reduce((sum, d) => sum + d.totalPeriods, 0);
+      toast.success(`AI parsed ${finalData.subjects.length} subjects across ${totalPeriods} periods`);
     } catch (error) {
-      console.error('[Scanner] Error:', error);
+      console.error('[Scanner] AI Error:', error);
+      const message = error instanceof Error ? error.message : 'Processing failed. Please try again.';
       setStage('error');
-      setErrorMessage(error instanceof Error ? error.message : 'Processing failed. Please try again.');
-      toast.error('Failed to process timetable');
+      setErrorMessage(message);
+      setRetryAfterSeconds(extractGeminiRetrySeconds(message));
+      toast.error('Failed to process timetable via Gemini Vision');
     }
-  }, [imagePreview, handleProgress]);
+  }, [imagePreview, selectedFile]);
 
-  /**
-   * Handle preview confirmation
-   */
   const handlePreviewConfirm = useCallback((finalData: FinalTimetableData) => {
     onScanComplete(finalData);
     toast.success('Timetable ready to save!');
   }, [onScanComplete]);
 
-  /**
-   * Clear and reset state
-   */
   const handleClear = useCallback(() => {
     setImagePreview(null);
     setSelectedFile(null);
@@ -222,22 +251,12 @@ export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
     setProgress(0);
     setStatusText('');
     setErrorMessage(null);
-    setOcrResult(null);
     setParsedData(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   }, []);
 
-  /**
-   * Handle modal close with cleanup
-   */
-  const handleClose = useCallback(() => {
-    terminateOCR();
-    onClose();
-  }, [onClose]);
-
-  // Show preview modal if we have parsed data
   if (stage === 'preview' && parsedData) {
     return (
       <TimetableEditablePreview
@@ -250,18 +269,17 @@ export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
     );
   }
 
-  const isProcessing = ['preprocessing', 'ocr', 'parsing'].includes(stage);
+  const isProcessing = stage === 'processing';
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-bg-primary rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold text-text-primary">
-            Scan Timetable (OCR)
+            Scan Timetable (Gemini Vision)
           </h2>
           <button
-            onClick={handleClose}
+            onClick={onClose}
             className="p-2 hover:bg-bg-muted rounded-lg"
             disabled={isProcessing}
           >
@@ -270,7 +288,6 @@ export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
         </div>
 
         <div className="p-4 space-y-4">
-          {/* Upload Area - Show when no image selected */}
           {!imagePreview ? (
             <div
               onDrop={handleDrop}
@@ -279,19 +296,12 @@ export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="w-12 h-12 mx-auto mb-3 text-text-muted" />
-              <p className="text-text-primary font-medium">
-                Upload Timetable Image
-              </p>
-              <p className="text-sm text-text-muted mt-1">
-                Click or drag and drop
-              </p>
-              <p className="text-xs text-text-muted mt-2">
-                Supports: JPG, PNG, WEBP, BMP (max 10MB)
-              </p>
+              <p className="text-text-primary font-medium">Upload Timetable Image</p>
+              <p className="text-sm text-text-muted mt-1">Click or drag and drop</p>
+              <p className="text-xs text-text-muted mt-2">Supports: JPG, PNG, WEBP, BMP (max 10MB)</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Image Preview */}
               <div className="relative rounded-xl overflow-hidden border border-border">
                 <img
                   src={imagePreview}
@@ -308,7 +318,6 @@ export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
                 )}
               </div>
 
-              {/* Processing Status */}
               {isProcessing && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -316,52 +325,35 @@ export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
                     <span className="text-sm text-text-secondary">{statusText}</span>
                   </div>
                   <div className="h-2 bg-bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-accent transition-all duration-300"
-                      style={{ width: `${progress}%` }}
-                    />
+                    <div className="h-full bg-accent transition-all duration-300" style={{ width: `${progress}%` }} />
                   </div>
-                  <p className="text-xs text-text-muted text-center">
-                    {progress}% complete
-                  </p>
+                  <p className="text-xs text-text-muted text-center">{progress}% complete</p>
                 </div>
               )}
 
-              {/* Error State */}
               {stage === 'error' && errorMessage && (
-                <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 flex gap-2">
-                  <AlertCircle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-text-primary font-medium">
-                      Processing Failed
-                    </p>
-                    <p className="text-sm text-text-secondary mt-1">
-                      {errorMessage}
-                    </p>
+                <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 space-y-3">
+                  <div className="flex gap-2">
+                    <AlertCircle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-text-primary font-medium">Processing Failed</p>
+                      <p className="text-sm text-text-secondary mt-1">{errorMessage}</p>
+                      {retryAfterSeconds && (
+                        <p className="text-xs text-text-muted mt-2">
+                          Suggested wait: {retryAfterSeconds} seconds
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-
-              {/* OCR Result Info */}
-              {ocrResult && stage === 'idle' && (
-                <div className="bg-success/10 border border-success/20 rounded-lg p-3 flex gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-text-primary font-medium">
-                      OCR Complete
-                    </p>
-                    <p className="text-xs text-text-secondary mt-1">
-                      Confidence: {ocrResult.confidence.toFixed(1)}% |
-                      Lines: {ocrResult.lines.length} |
-                      Time: {(ocrResult.processingTimeMs / 1000).toFixed(1)}s
-                    </p>
-                  </div>
+                  <Button variant="secondary" onClick={processImage} className="w-full">
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Retry Scan
+                  </Button>
                 </div>
               )}
             </div>
           )}
 
-          {/* Hidden File Input */}
           <input
             ref={fileInputRef}
             type="file"
@@ -370,7 +362,6 @@ export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
             className="hidden"
           />
 
-          {/* Action Buttons */}
           <div className="flex gap-2">
             {imagePreview ? (
               <>
@@ -397,21 +388,15 @@ export const TimetableScannerOCR: React.FC<TimetableScannerOCRProps> = ({
                 </Button>
               </>
             ) : (
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full"
-              >
+              <Button onClick={() => fileInputRef.current?.click()} className="w-full">
                 <ImageIcon className="w-4 h-4 mr-2" />
                 Select Image
               </Button>
             )}
           </div>
 
-          {/* Tips */}
           <div className="bg-bg-muted rounded-lg p-3">
-            <p className="text-xs font-medium text-text-secondary mb-1">
-              Tips for better results:
-            </p>
+            <p className="text-xs font-medium text-text-secondary mb-1">Tips for better results:</p>
             <ul className="text-xs text-text-muted space-y-1">
               <li>• Use a clear, well-lit photo of your timetable</li>
               <li>• Ensure text is readable and not blurry</li>

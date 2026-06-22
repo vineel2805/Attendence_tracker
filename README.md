@@ -1,8 +1,9 @@
+
 # Student Attendance Calculator
 
 A modern, mobile-first attendance tracking application for students built with React, TypeScript, and Tailwind CSS. Features cloud sync with Firebase for cross-device access.
 
-🌐 **Live Demo:** [https://attendence-tracker2.web.app](https://attendence-tracker2.web.app)
+ **Live Demo:** [https://attendence-tracker2.web.app](https://attendence-tracker2.web.app)
 
 ## Features
 
