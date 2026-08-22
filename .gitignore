@@ -88,3 +88,7 @@ android/.gradle/
 android/local.properties
 *.keystore
 *.jks
+
+
+#documents
+PUBLISHING_GUIDE.md

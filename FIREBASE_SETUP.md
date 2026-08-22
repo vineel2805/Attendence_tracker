@@ -1,4 +1,4 @@
-# 🔥 Firebase Setup Guide - Student Attendance Calculator
+# 🔥 Firebase Setup Guide -Attendly a Student Attendance Calculator app 
 
 Complete guide to set up Firebase Authentication and Firestore for your app.
 
