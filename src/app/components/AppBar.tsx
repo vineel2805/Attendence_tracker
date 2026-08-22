@@ -17,7 +17,8 @@ export const AppBar: React.FC<AppBarProps> = ({
   const { theme, setTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-10 bg-bg-primary border-b border-border px-4 py-4">
+    <header
+  className="sticky top-0 z-10 bg-bg-primary border-b border-border px-4">
       <div className="max-w-md mx-auto flex items-center justify-between">
         <h1 className="text-xl font-semibold text-text-primary">{title}</h1>
         

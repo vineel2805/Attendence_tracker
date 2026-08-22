@@ -2,20 +2,33 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.student.attendance.calculator',
+
   appName: 'Student Attendance Calculator',
+
   webDir: 'dist',
+
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
   },
+
   android: {
     allowMixedContent: false,
     backgroundColor: '#1a1a2e',
+
     buildOptions: {
       keystorePath: undefined,
       keystoreAlias: undefined,
-    }
+    },
   },
+
   plugins: {
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ['google.com'],
+    },
+
+   
+
     SplashScreen: {
       launchShowDuration: 2000,
       launchAutoHide: true,
@@ -24,6 +37,7 @@ const config: CapacitorConfig = {
       androidSpinnerStyle: 'small',
       spinnerColor: '#ffffff',
     },
+
     StatusBar: {
       style: 'DARK',
       backgroundColor: '#1a1a2e',

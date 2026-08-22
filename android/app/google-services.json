@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "409544845098",
+    "project_id": "attendence-tracker2",
+    "storage_bucket": "attendence-tracker2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:409544845098:android:bdf11fddb840ea3774a053",
+        "android_client_info": {
+          "package_name": "com.student.attendance.calculator"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "409544845098-0tjlf711kb8n11jis5hophfhar8sc0bm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.student.attendance.calculator",
+            "certificate_hash": "ba1a6f69c26ddb8d7ecac5946227f70bcbdfa649"
+          }
+        },
+        {
+          "client_id": "409544845098-2igqphj5skbg9uf4i5lb500q0m57jjrs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAw0QKe6pXNH4GXnujcy53XXygMon5sF94"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "409544845098-2igqphj5skbg9uf4i5lb500q0m57jjrs.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
