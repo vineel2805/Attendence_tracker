@@ -1,201 +1,153 @@
+<div align="center">
 
-# Student Attendance Calculator
+<img src="./public/logo.png" alt="Attendly Logo" width="96" />
 
-A modern, mobile-first attendance tracking application for students built with React, TypeScript, and Tailwind CSS. Features cloud sync with Firebase for cross-device access.
+# Attendly
 
- **Live Demo:** [https://attendence-tracker2.web.app](https://attendence-tracker2.web.app)
+### Smart Attendance Tracking for Students
+
+A modern, mobile-first attendance management application designed to help students
+track attendance, manage timetables, analyze subject-wise performance, and predict
+future attendance.
+
+<br />
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Attendly-111827?style=for-the-badge)](https://attendence-tracker2.web.app)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-111827?style=for-the-badge&logo=github)](https://github.com/vineel2805/Attendence_tracker)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Firebase](https://img.shields.io/badge/Firebase-Backend-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Capacitor](https://img.shields.io/badge/Capacitor-Android-119EFF?style=for-the-badge&logo=capacitor&logoColor=white)](https://capacitorjs.com/)
+
+</div>
+
+---
+
+## Overview
+
+**Attendly** is a student-focused attendance tracking application built around a
+simple goal:
+
+> **Know your attendance before it becomes a problem.**
+
+Instead of manually calculating percentages or maintaining attendance records
+in spreadsheets, Attendly provides a centralized place to record attendance,
+view academic statistics, manage timetables, and understand how future classes
+will affect attendance.
+
+The application is designed primarily for mobile use while remaining fully
+accessible through the web.
+
+---
+
+## Why Attendly?
+
+Attendance requirements can make a small number of missed classes have a
+significant impact on a student's overall percentage.
+
+Attendly helps students:
+
+- Track attendance without manual calculations
+- Quickly identify subjects that need attention
+- Maintain a structured weekly timetable
+- Review attendance history
+- Plan future attendance
+- Predict how upcoming classes affect their percentage
+- Keep their data synchronized across devices
+
+---
 
 ## Features
 
-###  Dashboard
-- Real-time attendance percentage overview
-- Visual stats with present/absent period counts
-- Quick access to all features
+### 📊 Dashboard
 
-###  Mark Attendance
-- Mark daily attendance by period
-- Support for multiple subjects (Theory & Lab)
-- Holiday marking with custom reasons
+A centralized overview of attendance performance.
 
-###  Calendar
-- Monthly calendar view with color-coded attendance
-- View attendance history by date
-- Edit past attendance records
-- Mark days as holidays (festivals, public holidays, etc.)
+- Overall attendance percentage
+- Total classes
+- Present classes
+- Absent classes
+- Subject-wise attendance
+- Attendance status indicators
+- Manual attendance baseline support
 
-###  Predict Attendance
-- Plan future attendance with calendar-based UI
-- See real-time impact on attendance percentage
-- Side-by-side current vs predicted stats
-- Quick actions: All Present, All Absent, Clear
+---
 
-###  Timetable
-- Configure weekly timetable
-- Assign subjects to specific periods
-- Day-wise period management
+### ✅ Attendance Tracking
 
-###  Settings
+Record attendance period by period.
+
+- Mark classes as present or absent
+- Support theory and laboratory subjects
+- View daily attendance
+- Maintain attendance history
+- Edit previously recorded attendance
+- Holiday support
+
+---
+
+### 📅 Calendar
+
+View attendance history through a monthly calendar.
+
+- Monthly attendance overview
+- Color-coded attendance information
+- Select individual dates
+- Review attendance records
+- Edit previous records
+- Mark holidays
+- Add custom holiday reasons
+
+---
+
+### 📈 Attendance Prediction
+
+Understand how future attendance decisions affect your percentage.
+
+- Select future dates
+- Plan attendance for upcoming classes
+- Calculate predicted attendance
+- Compare current and projected attendance
+- Quickly mark future classes as:
+  - All Present
+  - All Absent
+  - Clear
+
+This allows students to make informed decisions before their attendance
+drops below the required threshold.
+
+---
+
+### 🗓️ Timetable
+
+Create and manage a weekly class timetable.
+
+- Configure periods for each day
+- Assign subjects to periods
+- Support different schedules for different weekdays
+- Manage theory and laboratory subjects
+- Use timetable data for attendance calculations
+
+---
+
+### ⚙️ Settings
+
+Customize attendance and academic configuration.
+
 - Configure period duration
-- Set periods per day (per weekday)
-- Manage subjects (Theory/Lab types)
-- Inline stepper controls for easy editing
-- **Attendance Baseline**: Enter past attendance data (total & attended classes) up to a specific date for accurate overall percentage
+- Configure periods per weekday
+- Manage subjects
+- Define subject type
+- Edit timetable configuration
+- Configure attendance baseline
 
-###  Profile
-- Compact profile view
-- Edit profile via bottom sheet
-- Quick access to settings
+#### Attendance Baseline
 
-## Tech Stack
+Students who already have attendance records before using Attendly can enter
+their existing attendance information.
 
-- **Framework:** React 18 with TypeScript
-- **Styling:** Tailwind CSS with custom theme variables
-- **Routing:** React Router DOM
-- **Icons:** Lucide React
-- **Notifications:** Sonner (toast notifications)
-- **Build Tool:** Vite
-- **Backend:** Firebase (Authentication + Firestore)
-- **Hosting:** Firebase Hosting
-- **Mobile:** Capacitor (Android)
-- **Storage:** LocalStorage cache + Cloud sync
+For example:
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/vineel2805/Attendence_tracker.git
-cd Attendence_tracker
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-### Environment Setup
-
-Create a `.env` file in the root directory:
-
-```env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-```
-
-See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for detailed Firebase configuration instructions.
-
-### Build for Production
-
-```bash
-npm run build
-```
-
-### Deploy to Firebase Hosting
-
-```bash
-npm install -g firebase-tools
-firebase login
-firebase deploy --only hosting
-```
-
-## Project Structure
-
-```
-src/
-├── app/
-│   ├── components/     # Reusable UI components
-│   │   ├── AppBar.tsx
-│   │   ├── BottomNav.tsx
-│   │   ├── Button.tsx
-│   │   ├── Input.tsx
-│   │   ├── PeriodCard.tsx
-│   │   ├── StatCard.tsx
-│   │   └── ui/         # shadcn/ui components
-│   ├── screens/        # Page components
-│   │   ├── AttendanceScreen.tsx
-│   │   ├── CalendarScreen.tsx
-│   │   ├── DashboardScreen.tsx
-│   │   ├── LoginScreen.tsx
-│   │   ├── PredictScreen.tsx
-│   │   ├── ProfileScreen.tsx
-│   │   ├── SettingsScreen.tsx
-│   │   ├── SignupScreen.tsx
-│   │   └── TimetableScreen.tsx
-│   └── App.tsx         # Main app with routing
-├── styles/
-│   ├── fonts.css
-│   ├── index.css
-│   ├── tailwind.css
-│   └── theme.css       # Theme variables
-├── types/
-│   └── index.ts        # TypeScript type definitions
-├── utils/
-│   ├── attendance.ts   # Attendance calculation utilities
-│   ├── storage.ts      # LocalStorage wrapper with cloud sync
-│   ├── firebase.ts     # Firebase configuration
-│   ├── authService.ts  # Authentication service
-│   └── firestoreService.ts  # Firestore database operations
-└── main.tsx            # App entry point
-```
-
-## Theme
-
-The app supports both dark and light themes with a professional academic look:
-
-- **Dark Mode:** Deep navy background with neutral accents
-- **Light Mode:** Clean white background with subtle borders
-- **Colors:** Success (green), Warning (yellow), Danger (red), Accent (blue)
-
-## Key Features Implementation
-
-### Holiday Support
-- Mark any day as a holiday with a custom reason
-- Holidays are excluded from attendance calculations
-- Visual indicators on calendar (purple dots)
-
-### Attendance Prediction
-- Select future dates to plan attendance
-- Mark individual periods as present/absent
-- Real-time percentage calculation
-- Status indicators: Safe (≥75%), Warning (65-74%), Risk (<65%)
-
-### Inline Editing
-- Period configuration uses +/- steppers
-- Changes are tracked and saved on demand
-- Bottom sheet modals for subject editing
-
-## Authentication
-
-The app supports multiple authentication methods:
-- **Email/Password** - Traditional signup with email verification
-- **Google Sign-In** - One-click authentication
-- **Password Reset** - Email-based password recovery
-
-## Cloud Sync
-
-All data is automatically synced to Firebase Firestore:
-- Settings and preferences
-- Subjects and timetable
-- Attendance records
-- Profile information
-
-Data syncs across all devices logged into the same account.
-
-## License
-
-MIT License - See LICENSE file for details
-
-
-
-
+```text
+Total classes:   120
+Classes attended: 95

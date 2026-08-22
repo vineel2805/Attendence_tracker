@@ -110,11 +110,11 @@ export const LoginScreen: React.FC = () => {
        <div className="text-center mb-8">
             <img
               src={logo}
-              alt="Student Attendance Calculator"
+              alt="Attendly"
               className="w-20 h-20 mx-auto mb-4 object-contain"
             />
           <h1 className="text-2xl font-semibold text-text-primary mb-2">
-            Student Attendance
+            Attendly
           </h1>
           <p className="text-sm text-text-secondary">
             Track your class attendance

@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.student.attendance.calculator',
 
-  appName: 'Student Attendance Calculator',
+  appName: 'Attendly',
 
   webDir: 'dist',
 
