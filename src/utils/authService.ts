@@ -3,6 +3,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithCredential,
+  GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser,
@@ -11,6 +13,10 @@ import {
   updateProfile,
   reload,
 } from 'firebase/auth';
+
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
+
 import { auth, googleProvider } from './firebase';
 import { firestoreService } from './firestoreService';
 import { User } from '@/types';
@@ -106,36 +112,84 @@ export const authService = {
   },
 
   // Sign in with Google
-  async signInWithGoogle(): Promise<{ user: User | null; error: string | null; isNewUser: boolean }> {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const firebaseUser = result.user;
+ // Sign in with Google
+async signInWithGoogle(): Promise<{
+  user: User | null;
+  error: string | null;
+  isNewUser: boolean;
+}> {
+  try {
+    let firebaseUser: FirebaseUser;
 
-      // Check if user document exists
-      let userData = await firestoreService.getUserDocument(firebaseUser.uid);
-      let isNewUser = false;
+    if (Capacitor.isNativePlatform()) {
+      // Native Android/iOS Google Sign-In
+      const result = await FirebaseAuthentication.signInWithGoogle();
 
-      if (!userData) {
-        // New user - create document
-        isNewUser = true;
-        userData = {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          fullName: firebaseUser.displayName || undefined,
-          emailVerified: firebaseUser.emailVerified,
-          profileComplete: false,
+      if (!result.credential?.idToken) {
+        return {
+          user: null,
+          error: 'Google sign-in failed: no ID token received.',
+          isNewUser: false,
         };
-        await firestoreService.createUserDocument(userData);
-      } else {
-        // Update email verification status
-        userData.emailVerified = firebaseUser.emailVerified;
       }
 
-      return { user: userData, error: null, isNewUser };
-    } catch (error: any) {
-      return { user: null, error: getErrorMessage(error.code), isNewUser: false };
+      // Convert native Google credential into a Firebase Web Auth credential
+      const credential = GoogleAuthProvider.credential(
+        result.credential.idToken
+      );
+
+      const userCredential = await signInWithCredential(
+        auth,
+        credential
+      );
+
+      firebaseUser = userCredential.user;
+    } else {
+      // Normal web Google Sign-In
+      const result = await signInWithPopup(auth, googleProvider);
+      firebaseUser = result.user;
     }
-  },
+
+    // Check if user document exists
+    let userData = await firestoreService.getUserDocument(
+      firebaseUser.uid
+    );
+
+    let isNewUser = false;
+
+    if (!userData) {
+      // New user
+      isNewUser = true;
+
+      userData = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        fullName: firebaseUser.displayName || undefined,
+        emailVerified: firebaseUser.emailVerified,
+        profileComplete: false,
+      };
+
+      await firestoreService.createUserDocument(userData);
+    } else {
+      // Update verification status
+      userData.emailVerified = firebaseUser.emailVerified;
+    }
+
+    return {
+      user: userData,
+      error: null,
+      isNewUser,
+    };
+  } catch (error: any) {
+    console.error('[Auth] Google sign-in error:', error);
+
+    return {
+      user: null,
+      error: getErrorMessage(error.code),
+      isNewUser: false,
+    };
+  }
+},
 
   // Logout
   async logout(): Promise<{ error: string | null }> {

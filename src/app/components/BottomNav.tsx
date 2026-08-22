@@ -14,7 +14,8 @@ export const BottomNav: React.FC = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-bg-primary border-t border-border">
+    <nav
+  className="fixed bottom-0 left-0 right-0 bg-bg-primary border-t border-border">
       <div className="max-w-md mx-auto flex items-center justify-around px-1 py-2">
         {navItems.map(item => {
           const isActive = location.pathname === item.path;
