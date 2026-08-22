@@ -5,6 +5,7 @@ import { Button } from '@/app/components/Button';
 import { GoogleSignInButton } from '@/app/components/GoogleSignInButton';
 import { storage } from '@/utils/storage';
 import { authService } from '@/utils/authService';
+import logo from '@/assets/logo.png';
 
 export const LoginScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -106,7 +107,12 @@ export const LoginScreen: React.FC = () => {
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+       <div className="text-center mb-8">
+            <img
+              src={logo}
+              alt="Student Attendance Calculator"
+              className="w-20 h-20 mx-auto mb-4 object-contain"
+            />
           <h1 className="text-2xl font-semibold text-text-primary mb-2">
             Student Attendance
           </h1>
