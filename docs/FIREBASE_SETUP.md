@@ -157,6 +157,93 @@ npm run dev
 ```
 
 ---
+## 5. Android Firebase Configuration
+
+If you are building the Attendly Android application, you must register the Android app separately in Firebase and add the generated `google-services.json` file to the Android project.
+
+### Step 5.1: Register the Android App
+
+1. Open **Firebase Console → Project Settings**.
+2. In **Your apps**, click **Add app**.
+3. Select the **Android** icon.
+4. Enter the Android package name used by Attendly.
+
+You can find the package name in the Android project configuration:
+
+```text
+android/app/build.gradle
+```
+
+Look for:
+
+```gradle
+namespace "your.package.name"
+```
+
+Use the same package name when registering the Android app in Firebase.
+
+### Step 5.2: Download `google-services.json`
+
+After registering the Android app:
+
+1. Download `google-services.json` from Firebase Console.
+2. Place the file in:
+
+```text
+android/app/google-services.json
+```
+
+The project should look like:
+
+```text
+Attendence_tracker/
+├── android/
+│   └── app/
+│       ├── google-services.json
+│       ├── build.gradle
+│       └── src/
+├── src/
+├── docs/
+└── package.json
+```
+
+### Step 5.3: Important
+
+`google-services.json` is required for the Android Firebase configuration.
+
+Do **not** place it inside `src/` or the project root.
+
+Do **not** rename the file.
+
+The expected location is:
+
+```text
+android/app/google-services.json
+```
+
+### Step 5.4: Sync the Android Project
+
+After adding the file, synchronize the Capacitor Android project:
+
+```bash
+npm run build
+npx cap sync android
+```
+
+Then open the project in Android Studio:
+
+```bash
+npx cap open android
+```
+
+Firebase services used by the Android application will now use the Android app configuration registered in Firebase.
+
+### Security Note
+
+`google-services.json` contains Firebase project and application configuration. It is **not equivalent to a server-side secret key**. Firebase security must be enforced through Authentication, Firestore Security Rules, and other appropriate Firebase protections.
+
+If your project policy requires keeping configuration files out of the repository, add the file to `.gitignore` and provide it separately during Android setup.
+
 
 ## 6. Firestore Security Rules
 
