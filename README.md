@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./public/logo.png" alt="Attendly Logo" width="96" />
+<img src="./src/assets/logo.png" alt="Attendly Logo" width="96" />
 
 # Attendly
 
@@ -141,13 +141,21 @@ Customize attendance and academic configuration.
 - Edit timetable configuration
 - Configure attendance baseline
 
-#### Attendance Baseline
+### Attendance Baseline
 
-Students who already have attendance records before using Attendly can enter
-their existing attendance information.
+Students who already have attendance records before using Attendly can enter their existing attendance information.
 
 For example:
 
 ```text
-Total classes:   120
-Classes attended: 95
+Total classes:     120
+Classes attended:   95
+```
+
+## Documentation
+
+For developers who want to set up, modify, build, or maintain Attendly:
+
+- [Development Guide](docs/DEVELOPMENT.md)
+- [Firebase Setup](docs/FIREBASE_SETUP.md)
+- [Android Setup](docs/ANDROID_SETUP.md)
